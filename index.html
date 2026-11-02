@@ -402,14 +402,13 @@ function renderPiece(){
  <div class="inv"><div class="hd"><span class="ttl">${p.sale?'FACTURE DE VENTE':'FACTURE'}</span><span>${pc.no} · ${fshort(S.day)}</span></div>
  <div>${p.sale?'Émise par : '+esc(pc.cli):'Fournisseur : '+esc(p.f)}</div>
  <div>${esc(p.d)}</div>
- <div class="amt">Montant HTVA : ${eur2(pc.amt)}</div></div>`;
+ <div class="amt">HTVA ${eur2(pc.amt)}<br>TVA ${p.r?p.r+' %':'exempt'} ${p.r?eur2(Math.round(pc.amt*p.r)/100):''}<br>Total ${eur2(pc.amt+Math.round(pc.amt*p.r)/100)}</div></div>`;
  if(!M.res){
   h+=`<h3>Compte d'imputation</h3><div class="opts">${pc.opts.map(a=>`<button class="${M.acc===a?'sel':''}" data-act="selAcc" data-v="${a}"><span class="mono">${a}</span>${esc(ACC[a])}</button>`).join('')}</div>
-  <h3>Taux de TVA</h3><div class="rates">${[0,6,12,21].map(r=>`<button class="mono ${M.rate===r?'sel':''}" data-act="selRate" data-v="${r}">${r===0?'Exempt':r+' %'}</button>`).join('')}</div>
-  <button class="pri" data-act="validate" ${M.acc&&M.rate!==null?'':'disabled'}>Comptabiliser</button>`;
+  <button class="pri" data-act="validate" ${M.acc?'':'disabled'}>Comptabiliser</button>`;
  }else{
   const r=M.res,ok=r.okA&&r.okR,tva=Math.round(pc.amt*p.r)/100,ttc=pc.amt+tva;
-  h+=`<div class="verdict ${ok?'p-ok':'p-red'}">${ok?'Correct.':'Erreur.'} ${!r.okA?`Le bon compte était ${p.a} — ${esc(ACC[p.a])}.`:''} ${!r.okR?`Le bon taux était ${p.r?p.r+' %':'exempt'}.`:''}</div>
+  h+=`<div class="verdict ${ok?'p-ok':'p-red'}">${ok?'Correct.':'Erreur.'} ${!r.okA?`Le bon compte était ${p.a} — ${esc(ACC[p.a])}.`:''}</div>
   <h3>Écriture</h3><div class="scroll"><table class="ecr"><tr><th>Compte</th><th class="n">Débit</th><th class="n">Crédit</th></tr>`;
   if(p.sale){h+=`<tr><td>400 Clients</td><td class="n">${eur2(ttc)}</td><td></td></tr><tr><td>${p.a} ${esc(ACC[p.a])}</td><td></td><td class="n">${eur2(pc.amt)}</td></tr>${p.r?`<tr><td>45154 TVA due</td><td></td><td class="n">${eur2(tva)}</td></tr>`:''}`}
   else{h+=`<tr><td>${p.a} ${esc(ACC[p.a])}</td><td class="n">${eur2(pc.amt)}</td><td></td></tr>${p.r?`<tr><td>41159 TVA déductible</td><td class="n">${eur2(tva)}</td><td></td></tr>`:''}<tr><td>440 Fournisseurs</td><td></td><td class="n">${eur2(ttc)}</td></tr>`}
@@ -419,7 +418,7 @@ function renderPiece(){
 }
 function validatePiece(){
  const d=S.dossiers.find(x=>x.id===M.did);if(!d)return;const pc=d.piece,p=PIECES[pc.i];
- const okA=M.acc===p.a,okR=M.rate===p.r;if(!okA||!okR)d.errs++;
+ const okA=M.acc===p.a,okR=true;if(!okA)d.errs++;
  d.done+=.25;S.myH-=.25;d.piece=null;M.res={okA,okR,piece:pc};
  if(d.done>=d.h-1e-9)complete(d,3,true);
  save();renderPiece();renderTop();
