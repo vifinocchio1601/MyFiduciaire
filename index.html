@@ -101,6 +101,25 @@ td.n,th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabula
 .sheet{background:var(--bg);width:100%;max-width:560px;max-height:92%;overflow-y:auto;border-radius:12px 12px 0 0;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px calc(16px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px}
 .sheet>*{flex-shrink:0}
+.cal{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.cal .hd{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);text-align:center}
+.cal button{padding:6px 2px;min-height:52px;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:500;min-width:0}
+.cal button.today{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.cal button.selday{background:var(--accent);color:var(--accent-ink)}
+.cal button.out{visibility:hidden}
+.cal .dots{display:flex;gap:2px;flex-wrap:wrap;justify-content:center}
+.cal .dots i{width:7px;height:7px;border-radius:50%;background:var(--accent)}
+.cal .dots i.l{background:var(--red)}.cal .dots i.s{background:var(--amber)}
+.cal button.selday .dots i{background:var(--accent-ink)}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.seg button.sel{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.chart svg{width:100%;height:auto;display:block}
+.chart .ax{fill:var(--muted);font-family:var(--f-mono);font-size:10px}
+.chart .gl{stroke:var(--line);stroke-width:1}
+.chart .ln{fill:none;stroke:var(--accent);stroke-width:2}
+.chart .ar{fill:var(--accent);opacity:.12}
+.chart .dt{fill:var(--accent)}
+.chart .zr{stroke:var(--red);stroke-width:1;stroke-dasharray:3 3}
 .sheet{overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 .inv{background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:14px;font-family:var(--f-mono);font-size:13px;
   background-image:repeating-linear-gradient(to bottom,transparent 0 23px,var(--rule) 23px 24px);display:flex;flex-direction:column;gap:6px}
@@ -186,8 +205,30 @@ const TRO=[['p10','Premières pièces','Encoder 10 pièces',()=>S.st.pc>=10,500]
  ['e5','Équipe soudée','5 collaborateurs',()=>S.staff.length>=5,2000],
  ['eq','Bureau dernier cri',"Tout l'équipement au niveau 3",()=>EQ.every(e=>S.eq[e.k]>=3),5000],
  ['sv','Polyvalent','Débloquer la paie et le conseil fiscal',()=>S.svc.paie&&S.svc.cons,2000],
+ ['tax5','Fiscaliste',"5 déclarations d'impôt sans erreur",()=>S.st.taxOk>=5,2500],
  ['pos6','Rentable',"6 mois positifs d'affilée",()=>S.st.pos>=6,5000],
  ['pal4','Grand cabinet','Atteindre le palier 4',()=>S.pal>=4,10000]];
+const TAXI={ipp:[['Chiffre d\'affaires encaissé sur l\'année','r',[30000,90000]],['Loyer du local professionnel','d',[6000,14000]],['Cotisations sociales INASTI','d',[3000,9000]],['Achats de marchandises','d',[5000,25000]],['Assurance RC professionnelle','d',[300,1200]],
+  ['Frais de restaurant avec des clients','p',[400,2500],69],['Cadeaux d\'affaires à des clients','p',[200,900],50],['Amende de roulage','n',[50,350]],['Vêtements de ville','n',[200,900]],['Courses personnelles payées par le compte pro','n',[150,1200]],['Versement épargne-pension','red',[1020,1310]]],
+ isoc:[['Rémunérations du personnel','d',[20000,90000]],['Loyer des bureaux','d',[8000,30000]],['Amendes et pénalités','n',[100,2500]],['Impôt des sociétés et précomptes payés','n',[2000,15000]],['Dons à des associations','n',[250,3000]],
+  ['Frais de restaurant','p',[1000,6000],31],['Cadeaux d\'affaires','p',[300,2000],50],['Frais de voiture de société (part non déductible)','p',[2000,9000],40]]};
+const TAXO={ipp:[['r','Recette'],['d','Déductible'],['p','En partie'],['n','Non déductible'],['red',"Réduction d'impôt"]],isoc:[['d','Déductible'],['p','En partie non admise'],['n','Dépense non admise']]};
+function genTax(cl,type){
+ const k=cl.diff||1,m=type==='isoc'?(k===3?4:k===2?1.5:1):1;
+ let pool=TAXI[type].slice(),items=[];const must=type==='ipp'?[0,1,2]:[0,1];
+ must.forEach(i=>items.push(pool[i]));const rest=pool.filter((x,i)=>!must.includes(i)).sort(()=>Math.random()-.5).slice(0,4+k);
+ items=items.concat(rest).map(([lab,cat,r,pct])=>({lab,cat,pct:pct||0,amt:Math.round(rnd(r[0],r[1])*m/10)*10})).sort(()=>Math.random()-.5);
+ return {type,items,ben:type==='isoc'?Math.round(rnd(20,160)*1000*m/100)*100:0};
+}
+function taxCalc(q,cls){
+ const o={};
+ if(q.type==='ipp'){let r=0,ch=0,red=0;q.items.forEach((it,i)=>{const c=cls[i];if(c==='r')r+=it.amt;else if(c==='d')ch+=it.amt;else if(c==='p')ch+=it.amt*it.pct/100;else if(c==='red')red+=it.amt});
+  o.rows=[['Recettes professionnelles',r],['Charges déductibles',ch],['Revenu professionnel imposable',Math.max(0,r-ch)],["Base de la réduction d'impôt",red]];}
+ else{let dna=0;q.items.forEach((it,i)=>{const c=cls[i];if(c==='n')dna+=it.amt;else if(c==='p')dna+=it.amt*it.pct/100});const base=q.ben+dna,t=.2*Math.min(base,100000)+.25*Math.max(0,base-100000);
+  o.rows=[['Bénéfice comptable',q.ben],['Dépenses non admises',dna],['Base imposable',base],['Impôt des sociétés (20 % puis 25 %)',t]];}
+ return o;
+}
+let calOff=0,calSel=null,dview='liste';
 const pcost=()=>.25*(1-.2*S.eq.ocr);
 const svcFee=(c,k)=>Math.max(SVC[k].min,Math.round((c.mk||c.fee)*SVC[k].pct/5)*5);
 const feeOf=c=>c.fee+(c.svc&&c.svc.paie?svcFee(c,'paie'):0)+(c.svc&&c.svc.cons?svcFee(c,'cons'):0);
@@ -196,7 +237,7 @@ const ITEMS=[{n:'Vélo électrique',p:2500},{n:"Week-end à Rome",p:1200},{n:'Mo
 const DSAL=[0,1500,2500,4000,6000];
 const BFIELDS=[['A','Actifs immobilisés (20/28)'],['St','Stocks (3)'],['Cr','Créances commerciales (40)'],['Li','Valeurs disponibles (54/58)'],['TA',"Total de l'actif"],['CP','Capitaux propres, résultat compris (10/15)'],['De','Dettes (17/48)'],['TP','Total du passif'],['CA',"Chiffre d'affaires (70)"],['R',"Résultat de l'exercice"]];
 const KIND={v45:'Vente cocontractant',v46:'Livraison intracom.',nc:'Note de crédit reçue',ic:'Acquisition intracom.',cc:'Travaux cocontractant',v:'Vente',m:'Achat de marchandises',s:'Services et biens divers',i:'Investissement'};
-const DT={paie:{l:'Paie',dl:6},cons:{l:'Conseil fiscal',dl:20},mis:{l:'Mission',dl:30},rep:{l:'Reprise du dossier',dl:10},enc:{l:'Encodage',dl:15},tva:{l:'Déclaration TVA',dl:15},bil:{l:'Bilan annuel',dl:60},ipp:{l:'Déclaration IPP',dl:40}};
+const DT={isoc:{l:'Déclaration ISoc',dl:40},paie:{l:'Paie',dl:6},cons:{l:'Conseil fiscal',dl:20},mis:{l:'Mission',dl:30},rep:{l:'Reprise du dossier',dl:10},enc:{l:'Encodage',dl:15},tva:{l:'Déclaration TVA',dl:15},bil:{l:'Bilan annuel',dl:60},ipp:{l:'Déclaration IPP',dl:40}};
 const ACC={'604':'Achats de marchandises','2400':'Mobilier et matériel (investissement)','6100':'Loyers et charges locatives','6110':'Entretien et réparations','6120':'Énergie (électricité, gaz)','6121':'Eau','6124':'Fournitures de bureau','6125':'Téléphone et internet','6131':'Honoraires','6140':'Assurances','6151':'Publicité et annonces','6152':'Publications légales','6170':'Frais de véhicule et carburant','6180':'Restaurant et réception','6190':'Documentation','6402':"Droits d'enregistrement",'6570':'Frais bancaires','7000':"Chiffre d'affaires"};
 const PIECES=[
  {f:'Proximus',d:'Abonnement internet + téléphonie fixe',a:'6125',r:21,m:[45,95]},
@@ -265,8 +306,9 @@ function addDossier(cl,type){
  else if(type==='bil')h=6*cl.diff;
  else if(type==='paie'){h=.5+.5*cl.diff;lab=`Paie ${monthName(S.day)}`}
  else if(type==='cons'){h=2*cl.diff;lab='Conseil fiscal trimestriel'}
+ else if(type==='isoc')h=1+cl.diff;
  else h=3;
- S.dossiers.push({id:uid(),cid:cl.id,type,lab,h,done:0,n,diff:cl.diff,dl:S.day+DT[type].dl,who:null,late:false,errs:0,piece:null,q:type==='tva'?{lines:tvaLines(cl)}:type==='bil'?{bal:genBilan(cl)}:null});
+ S.dossiers.push({id:uid(),cid:cl.id,type,lab,h,done:0,n,diff:cl.diff,dl:S.day+DT[type].dl,who:null,late:false,errs:0,piece:null,q:type==='tva'?{lines:tvaLines(cl)}:type==='bil'?{bal:genBilan(cl)}:(type==='ipp'||type==='isoc')?genTax(cl,type):null});
 }
 function candidate(){
  const lv=Math.random()<.5?1:(Math.random()<.65?2:3);const r=ROLE[lv];
@@ -282,7 +324,7 @@ function prospect(){
  const c=makeClient(forms[i]);c.id=uid();c.mk=c.fee;return {id:c.id,c,exp:S.day+5};
 }
 function newGame(){
- S={v:3,eq:{scan:0,ocr:0,ecran:0,srv:0},svc:{paie:false,cons:false},st:{pc:0,streak:0,best:0,tvaOk:0,bilOk:0,mis:0,pos:0},tro:[],qInv:0,day:0,cash:5000,rep:50,pal:1,myH:8,clients:[],dossiers:[],staff:[],cands:[],prospects:[],log:[],months:[],nid:1,tvaDue:0,tvaDed:0,qNet:0,qFees:0,qMis:0,qSoft:0,mMis:0,quarters:[],me:{perso:2000,sal:0,inv:0,loan:0,flvl:0,owned:[]}};
+ S={v:3,eq:{scan:0,ocr:0,ecran:0,srv:0},svc:{paie:false,cons:false},st:{pc:0,streak:0,best:0,tvaOk:0,bilOk:0,mis:0,pos:0,taxOk:0},tro:[],qInv:0,day:0,cash:5000,rep:50,pal:1,myH:8,clients:[],dossiers:[],staff:[],cands:[],prospects:[],log:[],months:[],nid:1,tvaDue:0,tvaDed:0,qNet:0,qFees:0,qMis:0,qSoft:0,mMis:0,quarters:[],me:{perso:2000,sal:0,inv:0,loan:0,flvl:0,owned:[]}};
  for(const f of ['Indépendant','ASBL']){const c=makeClient(f);c.id=uid();c.mk=c.fee;S.clients.push(c);addDossier(c,'enc')}
  for(let i=0;i<5;i++)S.cands.push(candidate());
  S.prospects.push(prospect());
@@ -293,7 +335,8 @@ function load(){try{const s=localStorage.getItem(KEY);if(s){S=JSON.parse(s);migr
 function migrate(){
  const def={tvaDue:0,tvaDed:0,qNet:0,qFees:0,qMis:0,qSoft:0,mMis:0,quarters:[],me:{perso:2000,sal:0,inv:0,loan:0,flvl:0,owned:[]}};for(const k in def)if(S[k]===undefined)S[k]=def[k];
  for(const s of S.staff.concat(S.cands)){if(!s.wk)s.wk=['J','J','J','J','J'];if(s.cg===undefined)s.cg=20}
- for(const d of S.dossiers){if(d.type==='tva'&&!d.q)d.q={lines:tvaLines(client(d.cid)||{diff:1})};if(d.type==='bil'&&!(d.q&&d.q.bal))d.q={bal:genBilan(client(d.cid)||{diff:1})}}
+ for(const d of S.dossiers){if(d.type==='tva'&&!d.q)d.q={lines:tvaLines(client(d.cid)||{diff:1})};if(d.type==='bil'&&!(d.q&&d.q.bal))d.q={bal:genBilan(client(d.cid)||{diff:1})};if((d.type==='ipp'||d.type==='isoc')&&!(d.q&&d.q.items))d.q=genTax(client(d.cid)||{diff:1},d.type)}
+ if(S.st&&S.st.taxOk===undefined)S.st.taxOk=0;
  if(!S.eq)S.eq={scan:0,ocr:0,ecran:0,srv:0};if(!S.svc)S.svc={paie:false,cons:false};if(!S.st)S.st={pc:0,streak:0,best:0,tvaOk:0,bilOk:0,mis:0,pos:0};if(!S.tro)S.tro=[];if(S.qInv===undefined)S.qInv=0;
  for(const c of S.clients)if(!c.svc)c.svc={};
  if(!S.me)S.me={perso:2000,sal:0,inv:0,loan:0,flvl:0,owned:[]};
@@ -353,7 +396,7 @@ function monthEnd(day){
  const dir=S.me.sal,mis=S.mMis,net=fees+mis-sal-onss-loyer-soft-struct-dir;
  S.cash+=net-mis+fees*.21-(soft+struct)*.21;S.tvaDue+=fees*.21;S.tvaDed+=(soft+struct)*.21;
  S.qNet+=net;if(net>0)S.st.pos++;else S.st.pos=0;S.qFees+=fees;S.qSoft+=soft+struct;S.mMis=0;
- S.months.unshift({m:monthName(day),fees:fees+mis,sal,onss,loyer,soft,struct,dir,net});S.months=S.months.slice(0,24);
+ S.months.unshift({m:monthName(day),fees:fees+mis,sal,onss,loyer,soft,struct,dir,net,cash:Math.round(S.cash),cli:S.clients.length});S.months=S.months.slice(0,24);
  if(dir){S.me.perso+=Math.round(dir*.6);log(`Votre rémunération de dirigeant : ${eur(dir)} brut, ${eur(dir*.6)} net sur votre compte.`)}
  if(S.me.inv>0){const r=(2+Math.random()*5)/100/12,g=Math.round(S.me.inv*r);S.me.inv+=g;log(`Votre portefeuille rapporte ${eur(g)} ce mois.`)}
  const mk=S.clients.reduce((a,c)=>a+(c.mk||c.fee),0),ratio=mk?S.clients.reduce((a,c)=>a+c.fee,0)/mk:1;
@@ -394,6 +437,7 @@ function endDay(){
    if(c.tva&&m1%3===0)addDossier(c,'tva');
    if(m1===2&&c.forme!=='Indépendant')addDossier(c,'bil');
    if(m1===4&&c.forme==='Indépendant')addDossier(c,'ipp');
+   if(m1===6&&['SRL','SA','Groupe'].includes(c.forme))addDossier(c,'isoc');
    if(c.svc&&c.svc.paie)addDossier(c,'paie');
    if(c.svc&&c.svc.cons&&m1%3===0)addDossier(c,'cons');
   }
@@ -448,6 +492,11 @@ const ACT={
   if(c.sat>=55){c.svc[k]=true;log(`${c.name} accepte le service ${SVC[k].n} (+${eur(svcFee(c,k))} / mois).`);if(k==='paie')addDossier(c,'paie')}
   else{c.offered=c.offered||{};c.offered[k]=S.day;log(`${c.name} refuse : pas assez satisfait pour l'instant.`)}save();render()},
  stopsvc:(v)=>{const [id,k]=v.split(':'),c=client(+id);if(!c)return;c.svc[k]=false;log(`${SVC[k].n} arrêté pour ${c.name}.`);save();render()},
+ xcls:(v)=>{if(!M||!M.cls||M.res)return;const [i,k]=v.split(':');M.cls[+i]=k;renderForm()},
+ taxform:(id)=>openForm(+id),
+ dview:(v)=>{dview=v;render()},
+ calnav:(v)=>{calOff+= +v;calSel=null;render()},
+ calday:(v)=>{calSel=calSel===+v?null:+v;render()},
  tcls:(v)=>{if(!M||!M.cls||M.res)return;const [i,k]=v.split(':');M.cls[+i]=k;renderForm()},
  pprice:(v)=>{const [id,f]=v.split(':'),p=S.prospects.find(x=>x.id==id);if(!p)return;p.c.fee=Math.round(p.c.mk*+f/5)*5;save();render()},
  cprice:(v)=>{const [id,f]=v.split(':'),c=client(+id);if(!c)return;c.fee=Math.max(5,Math.round(c.fee*+f/5)*5);save();render()},
@@ -522,6 +571,7 @@ function validatePiece(){
  save();renderPiece();renderTop();
 }
 function formSpec(d){
+ if(d.type==='ipp'||d.type==='isoc')return {title:d.type==='ipp'?'Déclaration IPP':'Déclaration ISoc',cost:1};
  if(d.type==='bil'){const B=d.q.bal;return {title:'Bilan annuel',sub:'balance de clôture de l\'exercice',cost:2,fields:BFIELDS,exp:B.exp,
   table:`<tr><th>Compte</th><th>Libellé</th><th class="n">Débit</th><th class="n">Crédit</th></tr>${B.L.map(l=>`<tr><td class="mono">${l[0]}</td><td>${esc(l[1])}</td><td class="n">${l[3]==='D'?eur(l[2]):''}</td><td class="n">${l[3]==='C'?eur(l[2]):''}</td></tr>`).join('')}`}}
  return {title:'Déclaration TVA',sub:'trimestre écoulé · montants HTVA',cost:1,fields:GRIDS,exp:expected(d.q.lines),
@@ -551,13 +601,27 @@ function renderTvaForm(){
  else{const bad=L.filter((l,i)=>cls[i]!==lineGrid(l)).length;h=h.replace('<h3>Déclaration calculée</h3>',`<div class="verdict ${bad?'p-red':'p-ok'}">${bad?`${bad} pièce${bad>1?'s':''} mal classée${bad>1?'s':''}.`:'Déclaration correcte.'}</div><h3>Déclaration déposée</h3>`)+'<button data-act="close">Fermer</button>'}
  document.getElementById('sheet').innerHTML=h;
 }
+function renderTaxForm(){
+ const d=M.d,q=d.q,cls=M.cls,done=!!M.res,all=cls.every(Boolean),opts=TAXO[q.type],lab=Object.fromEntries(opts),calc=taxCalc(q,cls);
+ let h=`<div class="rowx"><h2>${M.sp.title}</h2><button data-act="close">Fermer</button></div>
+ <div class="sub">${esc(dname(d))} · ${q.type==='ipp'?"revenus de l'année, touchez la nature de chaque poste":"touchez le traitement fiscal de chaque charge"}</div>
+ ${q.type==='isoc'?`<div class="card"><div class="rowx"><span>Bénéfice comptable de l'exercice</span><b class="mono">${eur(q.ben)}</b></div></div>`:''}<div class="card">`;
+ q.items.forEach((it,i)=>{h+=`<div class="ln"><div class="rowx"><span>${esc(it.lab)}</span><span class="mono">${eur(it.amt)}</span></div>
+  <div class="gb">${opts.map(([k,l])=>`<button class="${cls[i]===k?'sel':''} ${done&&cls[i]===k&&k!==it.cat?'bad':''}" ${done?'disabled':''} data-act="xcls" data-v="${i}:${k}">${l}</button>`).join('')}</div>
+  ${done&&cls[i]!==it.cat?`<div class="sub p-red">Il fallait : ${lab[it.cat]}${it.cat==='p'?` (${q.type==='ipp'?it.pct+' % déductible':it.pct+' % non admis'})`:''}.</div>`:done&&it.cat==='p'?`<div class="sub">${q.type==='ipp'?it.pct+' % déductible':it.pct+' % non admis'}.</div>`:''}</div>`});
+ h+=`</div><h3>${done?'Déclaration déposée':'Calcul'}</h3><div class="card scroll"><table>${calc.rows.map(([l,v])=>`<tr><td>${l}</td><td class="n">${eur(v)}</td></tr>`).join('')}</table></div>`;
+ if(!done)h+=`<button class="pri" data-act="sendTva" ${all?'':'disabled'}>${all?'Déposer la déclaration (1 h)':`Encore ${cls.filter(x=>!x).length} poste(s) à classer`}</button>`;
+ else{const bad=q.items.filter((it,i)=>cls[i]!==it.cat).length;h=h.replace('<h3>Déclaration déposée</h3>',`<div class="verdict ${bad?'p-red':'p-ok'}">${bad?`${bad} poste${bad>1?'s':''} mal classé${bad>1?'s':''}.`:'Déclaration correcte.'}</div><h3>Déclaration déposée</h3>`)+'<button data-act="close">Fermer</button>'}
+ document.getElementById('sheet').innerHTML=h;
+}
 function openForm(id){
  const d=S.dossiers.find(x=>x.id===id);if(!d)return;const sp=formSpec(d);
  if(S.myH<sp.cost){log(`Il vous faut au moins ${sp.cost} h libres.`);render();return}
- M={tva:id,res:null,d,sp,cls:d.type==='tva'?d.q.lines.map(()=>null):null};renderForm();document.getElementById('modal').hidden=false;
+ M={tva:id,res:null,d,sp,cls:d.type==='tva'?d.q.lines.map(()=>null):d.q&&d.q.items?d.q.items.map(()=>null):null};renderForm();document.getElementById('modal').hidden=false;
 }
 function renderForm(){
  if(M.d.type==='tva')return renderTvaForm();
+ if(M.d.type==='ipp'||M.d.type==='isoc')return renderTaxForm();
  const d=M.d,sp=M.sp,g=sp.exp,bil=d.type==='bil';
  let h=`<div class="rowx"><h2>${sp.title}</h2><button data-act="close">Fermer</button></div>
  <div class="sub">${esc(dname(d))} · ${sp.sub}</div><div class="card scroll"><table>${sp.table}</table></div>`;
@@ -576,6 +640,8 @@ function renderForm(){
 }
 function validateForm(){
  const d=M.d,sp=M.sp;if(!S.dossiers.includes(d))return;
+ if(d.type==='ipp'||d.type==='isoc'){if(!M.cls.every(Boolean))return;const bad=d.q.items.filter((it,i)=>M.cls[i]!==it.cat).length;if(!bad)S.st.taxOk++;
+  d.errs=Math.min(3,bad);d.done=d.h;S.myH-=sp.cost;M.res={};complete(d,3,true);save();renderForm();renderTop();return}
  if(d.type==='tva'){if(!M.cls.every(Boolean))return;const bad=d.q.lines.filter((l,i)=>M.cls[i]!==lineGrid(l)).length;if(!bad)S.st.tvaOk++;
   d.errs=Math.min(3,bad);d.done=d.h;S.myH-=sp.cost;M.res={};complete(d,3,true);save();renderForm();renderTop();return}
  const g=sp.exp,vals={};
@@ -605,6 +671,7 @@ function dossierCard(d){
  let act='';
  if(d.who==='me')act=d.type==='enc'?`<button class="pri" data-act="encode" data-v="${d.id}" ${S.myH<pcost()?'disabled':''}>Encoder (${leftPieces(d)} pièces)</button>`
   :d.type==='tva'?`<button class="pri" data-act="tvaform" data-v="${d.id}" ${S.myH<1?'disabled':''}>Remplir la déclaration</button>`
+  :(d.type==='ipp'||d.type==='isoc')?`<button class="pri" data-act="taxform" data-v="${d.id}" ${S.myH<1?'disabled':''}>Remplir la déclaration (1 h)</button>`
   :d.type==='bil'?`<button class="pri" data-act="bilform" data-v="${d.id}" ${S.myH<2?'disabled':''}>Monter le bilan (2 h)</button>`
   :`<button class="pri" data-act="work" data-v="${d.id}" ${S.myH<=0?'disabled':''}>Travailler 2 h</button>`;
  return `<div class="card"><div class="rowx"><span class="name">${esc(d.lab)}</span>${st}</div>
@@ -644,9 +711,30 @@ function vBureau(){
  h+=`<div class="sec"><h3>Journal</h3><div class="card log">${S.log.slice(0,12).map(l=>`<div><span class="d">${fshort(l.d)}</span>${esc(l.t)}</div>`).join('')}</div></div>`;
  return h;
 }
+function monthDays(off){
+ const cur=dateOf(S.day),tgt=new Date(cur.getFullYear(),cur.getMonth()+off,1),key=d=>d.getFullYear()*12+d.getMonth(),tk=key(tgt);
+ let n=S.day;while(key(dateOf(n))>tk&&n>0)n--;while(key(dateOf(n))<tk)n++;while(n>0&&key(dateOf(n-1))===tk)n--;
+ const out=[];if(key(dateOf(n))===tk)while(key(dateOf(n))===tk){out.push(n);n++}
+ return {days:out,label:tgt.toLocaleDateString('fr-BE',{month:'long',year:'numeric'})};
+}
+function vCal(){
+ const {days,label}=monthDays(calOff);
+ const by={};for(const d of S.dossiers){(by[d.dl]=by[d.dl]||[]).push(d)}
+ const lead=(dateOf(days[0]).getDay()+6)%7;
+ let h=`<div class="card"><div class="rowx"><button data-act="calnav" data-v="-1" aria-label="Mois précédent">‹</button><span class="name" style="text-transform:capitalize">${label}</span><button data-act="calnav" data-v="1" aria-label="Mois suivant">›</button></div>
+ <div class="cal">${['Lun','Mar','Mer','Jeu','Ven'].map(x=>`<span class="hd">${x}</span>`).join('')}${'<button class="out" disabled></button>'.repeat(Math.min(lead,4))}
+ ${days.map(n=>{const ds=by[n]||[];return `<button class="${n===S.day?'today':''} ${calSel===n?'selday':''}" data-act="calday" data-v="${n}">${dateOf(n).getDate()}<span class="dots">${ds.slice(0,6).map(d=>`<i class="${d.late?'l':n-S.day<=3?'s':''}"></i>`).join('')}</span></button>`}).join('')}</div>
+ <div class="sub">Chaque point est un dossier à rendre ce jour-là. Touchez un jour pour voir ses dossiers.</div></div>`;
+ const late=S.dossiers.filter(d=>d.dl<days[0]&&calOff===0);
+ const list=calSel!==null?(by[calSel]||[]):[];
+ if(calSel!==null)h+=`<h3>Échéances du ${fshort(calSel)}</h3>${list.length?list.map(dossierCard).join(''):'<div class="empty">Aucun dossier à rendre ce jour-là.</div>'}`;
+ else if(late.length)h+=`<h3>Échéances déjà dépassées</h3>${late.map(dossierCard).join('')}`;
+ return h;
+}
 function vDossiers(){
  const ds=[...S.dossiers].sort((a,b)=>(a.who===null?0:1)-(b.who===null?0:1)||a.dl-b.dl);
- return `<div class="sec"><h2>Dossiers (${ds.length})</h2><div class="sub">Répartissez chaque dossier. Attribuez-vous les encodages délicats pour les faire à la main.</div>${ds.length?ds.map(dossierCard).join(''):'<div class="empty">Tous les dossiers sont à jour.</div>'}</div>`;
+ return `<div class="sec"><h2>Dossiers (${ds.length})</h2><div class="seg"><button class="${dview==='liste'?'sel':''}" data-act="dview" data-v="liste">Liste</button><button class="${dview==='cal'?'sel':''}" data-act="dview" data-v="cal">Calendrier</button></div>
+ ${dview==='cal'?vCal():`<div class="sub">Répartissez chaque dossier. Attribuez-vous les encodages délicats pour les faire à la main.</div>${ds.length?ds.map(dossierCard).join(''):'<div class="empty">Tous les dossiers sont à jour.</div>'}`}</div>`;
 }
 function vClients(){
  return `<div class="sec"><h2>Clients (${S.clients.length} / ${PAL[S.pal].maxC})</h2>${S.clients.map(c=>{const n=S.dossiers.filter(d=>d.cid===c.id).length;
@@ -669,6 +757,29 @@ function vEquipe(){
  ${full?'<div class="sub p-amber">Équipe complète pour ce palier.</div>':''}</div>`;
  return h;
 }
+function chart(title,vals,labels,fmt){
+ if(vals.length<2)return `<div class="card"><span class="name">${title}</span><div class="empty">Disponible après deux mois clôturés.</div></div>`;
+ const W=320,H=120,pl=46,pr=10,pt=10,pb=20,mn=Math.min(0,...vals),mx=Math.max(...vals),rg=mx-mn||1;
+ const x=i=>pl+i*(W-pl-pr)/(vals.length-1),y=v=>pt+(H-pt-pb)*(1-(v-mn)/rg);
+ const pts=vals.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+ const ticks=[mn,(mn+mx)/2,mx];
+ return `<div class="card chart"><div class="rowx"><span class="name">${title}</span><b class="mono">${fmt(vals[vals.length-1])}</b></div>
+ <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${title}">${ticks.map(t=>`<line class="gl" x1="${pl}" x2="${W-pr}" y1="${y(t)}" y2="${y(t)}"/><text class="ax" x="${pl-4}" y="${y(t)+3}" text-anchor="end">${fmt(t,1)}</text>`).join('')}
+ ${mn<0?`<line class="zr" x1="${pl}" x2="${W-pr}" y1="${y(0)}" y2="${y(0)}"/>`:''}
+ <polygon class="ar" points="${x(0)},${y(mn)} ${pts} ${x(vals.length-1)},${y(mn)}"/><polyline class="ln" points="${pts}"/>
+ <circle class="dt" cx="${x(vals.length-1)}" cy="${y(vals[vals.length-1])}" r="3.5"/>
+ <text class="ax" x="${pl}" y="${H-4}">${labels[0]}</text><text class="ax" x="${W-pr}" y="${H-4}" text-anchor="end">${labels[labels.length-1]}</text></svg></div>`;
+}
+function vCharts(){
+ const ms=S.months.slice(0,12).reverse(),sl=m=>m.m.slice(0,3)+' '+m.m.slice(-2),lab=ms.map(sl);
+ const k=(v,short)=>short&&Math.abs(v)>=1000?(Math.round(v/100)/10).toString().replace('.',',')+' k':eur(v);
+ const withCash=ms.filter(m=>m.cash!==undefined),cl=ms.filter(m=>m.cli!==undefined);
+ return `<div class="sec"><h3>Évolution (12 derniers mois)</h3>
+ ${chart('Trésorerie en fin de mois',withCash.map(m=>m.cash),withCash.map(sl),k)}
+ ${chart('Honoraires du mois (HTVA)',ms.map(m=>m.fees),lab,k)}
+ ${chart('Résultat du mois',ms.map(m=>m.net),lab,k)}
+ ${chart('Nombre de clients',cl.map(m=>m.cli),cl.map(sl),v=>String(Math.round(v)))}</div>`;
+}
 function vFin(){
  const fees=S.clients.reduce((a,c)=>a+feeOf(c),0),sal=S.staff.reduce((a,s)=>a+s.sal,0),onss=Math.round(sal*.27),loyer=PAL[S.pal].loyer,soft=45*(S.staff.length+1),st=150*S.pal*S.pal,net=fees+S.mMis-sal-onss-loyer-soft-st-S.me.sal;
  const row=(l,v,neg)=>`<tr><td>${l}</td><td class="n ${neg&&v?'p-red':''}">${neg&&v?'− ':''}${eur(v)}</td></tr>`;
@@ -683,6 +794,7 @@ function vFin(){
  <tr><td>Impôt des sociétés estimé (20 % puis 25 %)</td><td class="n">${eur(isoc)}</td></tr></table></div>
  <div class="sub">À chaque fin de trimestre : impôt prélevé et déclaration TVA du bureau à remplir.</div></div>`;
  if(S.quarters.length)h+=`<div class="sec"><h3>Clôtures trimestrielles</h3><div class="card scroll"><table><tr><th>Trimestre</th><th class="n">Résultat</th><th class="n">Impôt</th></tr>${S.quarters.map(q=>`<tr><td>${q.q}</td><td class="n ${q.res<0?'p-red':''}">${eur(q.res)}</td><td class="n">${eur(q.isoc)}</td></tr>`).join('')}</table></div></div>`;
+ h+=vCharts();
  h+=`<div class="sec"><h3>Historique</h3>${S.months.length?`<div class="card scroll"><table><tr><th>Mois</th><th class="n">Honoraires</th><th class="n">Charges</th><th class="n">Résultat</th></tr>${S.months.map(m=>`<tr><td style="text-transform:capitalize">${m.m}</td><td class="n">${eur(m.fees)}</td><td class="n">${eur(m.fees-m.net)}</td><td class="n ${m.net<0?'p-red':''}">${eur(m.net)}</td></tr>`).join('')}</table></div>`:'<div class="empty">Le premier mois n\'est pas encore clôturé.</div>'}</div>`;
  h+=`<div class="sec"><h3>Partie</h3><div class="card"><div class="sub">Sauvegarde automatique sur cet appareil.</div><button class="dan" data-act="reset">Recommencer une partie</button></div></div>`;
  return h;
