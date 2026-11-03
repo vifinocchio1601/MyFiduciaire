@@ -100,6 +100,8 @@ td.n,th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabula
 .modal{position:fixed;inset:0;z-index:20;background:rgba(10,18,15,.55);display:flex;align-items:flex-end;justify-content:center}
 .sheet{background:var(--bg);width:100%;max-width:560px;max-height:92%;overflow-y:auto;border-radius:12px 12px 0 0;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px calc(16px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px}
+.sheet>*{flex-shrink:0}
+.sheet{overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 .inv{background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:14px;font-family:var(--f-mono);font-size:13px;
   background-image:repeating-linear-gradient(to bottom,transparent 0 23px,var(--rule) 23px 24px);display:flex;flex-direction:column;gap:6px}
 .inv .hd{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
@@ -211,7 +213,7 @@ const PIECES=[
  {f:'SPF Finances',d:"Droits d'enregistrement du bail commercial",a:'6402',r:0,m:[50,220]},
  {f:'TotalEnergies Aywaille',d:'Plein de carburant véhicule de société',a:'6170',r:21,m:[60,120]},
  {f:'Garage Piron',d:'Entretien annuel et pneus du véhicule',a:'6170',r:21,m:[280,950]},
- {f:'Restaurant Le Val d\'Ourthe',d:'Repas avec un client',a:'6180',r:12,m:[60,240]},
+ {f:'Restaurant Le Val d\'Ourthe',d:'Repas avec un client',a:'6180',r:12,nd:1,m:[60,240]},
  {f:'Librairie Pax',d:'Code TVA annoté et ouvrages fiscaux',a:'6190',r:6,m:[45,160]},
  {f:'M. Lemaire (propriétaire)',d:'Loyer du local commercial — mois en cours',a:'6100',r:0,m:[650,1600]},
  {f:'Plomberie Hennen',d:'Réparation fuite sanitaires du local',a:'6110',r:21,m:[120,640]},
@@ -304,7 +306,7 @@ const leftPieces=d=>Math.max(0,Math.ceil((d.h-d.done)/.25-1e-9));
 const dname=d=>d.cname||(client(d.cid)||{}).name||'';
 const r2=x=>Math.round(x*100)/100;
 function tvaLines(cl){
- const k=cl.diff||1,lines=[],sales=PIECES.filter(p=>p.sale&&p.r>0),buys=PIECES.filter(p=>!p.sale&&p.r>0&&!p.au&&!p.nc);
+ const k=cl.diff||1,lines=[],sales=PIECES.filter(p=>p.sale&&p.r>0),buys=PIECES.filter(p=>!p.sale&&p.r>0&&!p.au&&!p.nc&&!p.nd);
  const amt=p=>r2((p.m[0]+Math.random()*(p.m[1]-p.m[0]))*k);
  for(let i=0;i<rnd(2,3)+k-1;i++){const p=pick(sales);lines.push({lab:p.d,kind:'v',rate:p.r,amt:amt(p)})}
  for(let i=0;i<rnd(3,4)+k-1;i++){const p=pick(buys);lines.push({lab:`${p.f} — ${p.d}`,kind:p.a==='604'?'m':p.a==='2400'?'i':'s',rate:p.r,amt:amt(p)})}
@@ -505,6 +507,7 @@ function renderPiece(){
   if(p.nc){h+=`<tr><td>440 Fournisseurs</td><td class="n">${eur2(ttc)}</td><td></td></tr><tr><td>${p.a} ${esc(ACC[p.a])}</td><td></td><td class="n">${eur2(pc.amt)}</td></tr><tr><td>41159 TVA déductible</td><td></td><td class="n">${eur2(tva)}</td></tr>`}
   else if(p.au){h+=`<tr><td>${p.a} ${esc(ACC[p.a])}</td><td class="n">${eur2(pc.amt)}</td><td></td></tr><tr><td>41159 TVA déductible</td><td class="n">${eur2(tva)}</td><td></td></tr><tr><td>440 Fournisseurs</td><td></td><td class="n">${eur2(pc.amt)}</td></tr><tr><td>45154 TVA due (autoliquidation)</td><td></td><td class="n">${eur2(tva)}</td></tr>`}
   else if(p.sale){h+=`<tr><td>400 Clients</td><td class="n">${eur2(ttc)}</td><td></td></tr><tr><td>${p.a} ${esc(ACC[p.a])}</td><td></td><td class="n">${eur2(pc.amt)}</td></tr>${p.r?`<tr><td>45154 TVA due</td><td></td><td class="n">${eur2(tva)}</td></tr>`:''}`}
+  else if(p.nd){h+=`<tr><td>${p.a} ${esc(ACC[p.a])} (TVA non déductible comprise)</td><td class="n">${eur2(ttc)}</td><td></td></tr><tr><td>440 Fournisseurs</td><td></td><td class="n">${eur2(ttc)}</td></tr>`}
   else{h+=`<tr><td>${p.a} ${esc(ACC[p.a])}</td><td class="n">${eur2(pc.amt)}</td><td></td></tr>${p.r?`<tr><td>41159 TVA déductible</td><td class="n">${eur2(tva)}</td><td></td></tr>`:''}<tr><td>440 Fournisseurs</td><td></td><td class="n">${eur2(ttc)}</td></tr>`}
   h+=`</table></div><div class="btns">${d&&S.myH>=pcost()?`<button class="pri" data-act="nextPiece">Pièce suivante</button>`:''}<button data-act="close">Fermer</button></div>`;
  }
