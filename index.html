@@ -101,6 +101,9 @@ td.n,th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabula
 .sheet{background:var(--bg);width:100%;max-width:560px;max-height:92%;overflow-y:auto;border-radius:12px 12px 0 0;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px calc(16px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px}
 .sheet>*{flex-shrink:0}
+.opts.one{grid-template-columns:1fr}
+.opts button.bad{border-color:var(--red);box-shadow:inset 0 0 0 1px var(--red)}
+.opts button:disabled{opacity:1}
 .cal{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
 .cal .hd{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);text-align:center}
 .cal button{padding:6px 2px;min-height:52px;display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:500;min-width:0}
@@ -228,6 +231,27 @@ function taxCalc(q,cls){
   o.rows=[['Bénéfice comptable',q.ben],['Dépenses non admises',dna],['Base imposable',base],['Impôt des sociétés (20 % puis 25 %)',t]];}
  return o;
 }
+const ANT={cost:20000,loyer:900,c:8,s:3,max:3,pal:2};
+const ANTOWNS=['Liège','Huy','Marche-en-Famenne','Verviers','Namur'];
+const maxC=()=>PAL[S.pal].maxC+ANT.c*(S.offs.length-1),maxS=()=>PAL[S.pal].maxS+ANT.s*(S.offs.length-1);
+const offOf=d=>{const c=d.cid!=null?client(d.cid):null;return c?(c.off||0):null};
+const ENT={am:['6302 Dotations aux amortissements','2409 Amortissements actés'],cr:['490 Charges à reporter','61.. Charge concernée'],ci:['61.. Charge concernée','492 Charges à imputer'],
+ pr:["70.. Chiffre d'affaires",'493 Produits à reporter'],pa:['491 Produits acquis','75.. Produits financiers'],rv:['6340 Réduction de valeur sur créances','4009 Réductions de valeur actées'],pv:['6370 Dotation aux provisions','1600 Provision pour risques et charges']};
+const CLO=[['am',a=>`Ordinateur acheté ${eur(a)} HTVA en début d'exercice, amorti sur 3 ans`,[1200,3000],a=>a/3],
+ ['am',a=>`Camionnette achetée ${eur(a)} en début d'exercice, amortie sur 5 ans`,[18000,40000],a=>a/5],
+ ['cr',a=>`Prime d'assurance de ${eur(a)} payée le 1er octobre pour un an`,[1200,4800],a=>a*9/12],
+ ['cr',a=>`Loyer de janvier (${eur(a)}) déjà payé fin décembre`,[800,2500],a=>a],
+ ['ci',a=>`Facture d'électricité de décembre pas encore reçue, estimée à ${eur(a)}`,[200,900],a=>a],
+ ['ci',a=>`Honoraires d'avocat de décembre, facture attendue de ${eur(a)}`,[500,3000],a=>a],
+ ['pr',a=>`Un client a payé en décembre ${eur(a)} pour une prestation faite en janvier`,[1000,6000],a=>a],
+ ['pa',a=>`Intérêts d'épargne de ${eur(a)} acquis sur l'exercice, versés en janvier`,[50,600],a=>a],
+ ['rv',a=>`Client en faillite : créance de ${eur(a)} probablement perdue`,[800,9000],a=>a],
+ ['pv',a=>`Litige avec un ancien employé : risque de devoir payer ${eur(a)}`,[2000,15000],a=>a]];
+function genClo(cl){
+ const k=cl.diff||1,pool=CLO.map((x,i)=>i).sort(()=>Math.random()-.5).slice(0,3+k),m=k===3?3:1;
+ return {items:pool.map(i=>{const [cat,txt,r,f]=CLO[i],a=Math.round(rnd(r[0],r[1])*m/10)*10,keys=Object.keys(ENT).filter(x=>x!==cat).sort(()=>Math.random()-.5).slice(0,3);
+  return {cat,lab:txt(a),amt:Math.round(f(a)),opts:[cat,...keys].sort(()=>Math.random()-.5)}})};
+}
 let calOff=0,calSel=null,dview='liste';
 const pcost=()=>.25*(1-.2*S.eq.ocr);
 const svcFee=(c,k)=>Math.max(SVC[k].min,Math.round((c.mk||c.fee)*SVC[k].pct/5)*5);
@@ -237,7 +261,7 @@ const ITEMS=[{n:'Vélo électrique',p:2500},{n:"Week-end à Rome",p:1200},{n:'Mo
 const DSAL=[0,1500,2500,4000,6000];
 const BFIELDS=[['A','Actifs immobilisés (20/28)'],['St','Stocks (3)'],['Cr','Créances commerciales (40)'],['Li','Valeurs disponibles (54/58)'],['TA',"Total de l'actif"],['CP','Capitaux propres, résultat compris (10/15)'],['De','Dettes (17/48)'],['TP','Total du passif'],['CA',"Chiffre d'affaires (70)"],['R',"Résultat de l'exercice"]];
 const KIND={v45:'Vente cocontractant',v46:'Livraison intracom.',nc:'Note de crédit reçue',ic:'Acquisition intracom.',cc:'Travaux cocontractant',v:'Vente',m:'Achat de marchandises',s:'Services et biens divers',i:'Investissement'};
-const DT={isoc:{l:'Déclaration ISoc',dl:40},paie:{l:'Paie',dl:6},cons:{l:'Conseil fiscal',dl:20},mis:{l:'Mission',dl:30},rep:{l:'Reprise du dossier',dl:10},enc:{l:'Encodage',dl:15},tva:{l:'Déclaration TVA',dl:15},bil:{l:'Bilan annuel',dl:60},ipp:{l:'Déclaration IPP',dl:40}};
+const DT={clo:{l:'Écritures de clôture',dl:30},isoc:{l:'Déclaration ISoc',dl:40},paie:{l:'Paie',dl:6},cons:{l:'Conseil fiscal',dl:20},mis:{l:'Mission',dl:30},rep:{l:'Reprise du dossier',dl:10},enc:{l:'Encodage',dl:15},tva:{l:'Déclaration TVA',dl:15},bil:{l:'Bilan annuel',dl:60},ipp:{l:'Déclaration IPP',dl:40}};
 const ACC={'604':'Achats de marchandises','2400':'Mobilier et matériel (investissement)','6100':'Loyers et charges locatives','6110':'Entretien et réparations','6120':'Énergie (électricité, gaz)','6121':'Eau','6124':'Fournitures de bureau','6125':'Téléphone et internet','6131':'Honoraires','6140':'Assurances','6151':'Publicité et annonces','6152':'Publications légales','6170':'Frais de véhicule et carburant','6180':'Restaurant et réception','6190':'Documentation','6402':"Droits d'enregistrement",'6570':'Frais bancaires','7000':"Chiffre d'affaires"};
 const PIECES=[
  {f:'Proximus',d:'Abonnement internet + téléphonie fixe',a:'6125',r:21,m:[45,95]},
@@ -287,7 +311,7 @@ const monthName=n=>dateOf(n).toLocaleDateString('fr-BE',{month:'long',year:'nume
 
 let S, tab='bureau', M=null;
 const uid=()=>S.nid++;
-function log(t){S.log.unshift({d:S.day,t});S.log=S.log.slice(0,40)}
+function log(t){S.logSeq=(S.logSeq||0)+1;S.log.unshift({d:S.day,t,q:S.logSeq});S.log=S.log.slice(0,40)}
 
 function makeClient(forme){
  const c=CT[forme],l=pick(L),f=pick(F),t=pick(T);
@@ -306,9 +330,9 @@ function addDossier(cl,type){
  else if(type==='bil')h=6*cl.diff;
  else if(type==='paie'){h=.5+.5*cl.diff;lab=`Paie ${monthName(S.day)}`}
  else if(type==='cons'){h=2*cl.diff;lab='Conseil fiscal trimestriel'}
- else if(type==='isoc')h=1+cl.diff;
+ else if(type==='isoc'||type==='clo')h=1+cl.diff;
  else h=3;
- S.dossiers.push({id:uid(),cid:cl.id,type,lab,h,done:0,n,diff:cl.diff,dl:S.day+DT[type].dl,who:null,late:false,errs:0,piece:null,q:type==='tva'?{lines:tvaLines(cl)}:type==='bil'?{bal:genBilan(cl)}:(type==='ipp'||type==='isoc')?genTax(cl,type):null});
+ S.dossiers.push({id:uid(),cid:cl.id,type,lab,h,done:0,n,diff:cl.diff,dl:S.day+DT[type].dl,who:null,late:false,errs:0,piece:null,q:type==='tva'?{lines:tvaLines(cl)}:type==='bil'?{bal:genBilan(cl)}:(type==='ipp'||type==='isoc')?genTax(cl,type):type==='clo'?genClo(cl):null});
 }
 function candidate(){
  const lv=Math.random()<.5?1:(Math.random()<.65?2:3);const r=ROLE[lv];
@@ -321,10 +345,12 @@ function prospect(){
  const forms=Object.keys(CT).filter(k=>CT[k].pal<=S.pal);
  const w=forms.map(k=>CT[k].pal===S.pal?3:1);let x=Math.random()*w.reduce((a,b)=>a+b,0),i=0;
  while(x>w[i]){x-=w[i];i++}
- const c=makeClient(forms[i]);c.id=uid();c.mk=c.fee;return {id:c.id,c,exp:S.day+5};
+ const c=makeClient(forms[i]);c.id=uid();c.mk=c.fee;c.off=0;
+ if(S.offs.length>1&&Math.random()<(S.offs.length-1)/S.offs.length){c.off=rnd(1,S.offs.length-1);c.town=S.offs[c.off].n}
+ return {id:c.id,c,exp:S.day+5};
 }
 function newGame(){
- S={v:3,eq:{scan:0,ocr:0,ecran:0,srv:0},svc:{paie:false,cons:false},st:{pc:0,streak:0,best:0,tvaOk:0,bilOk:0,mis:0,pos:0,taxOk:0},tro:[],qInv:0,day:0,cash:5000,rep:50,pal:1,myH:8,clients:[],dossiers:[],staff:[],cands:[],prospects:[],log:[],months:[],nid:1,tvaDue:0,tvaDed:0,qNet:0,qFees:0,qMis:0,qSoft:0,mMis:0,quarters:[],me:{perso:2000,sal:0,inv:0,loan:0,flvl:0,owned:[]}};
+ S={v:3,eq:{scan:0,ocr:0,ecran:0,srv:0},svc:{paie:false,cons:false},offs:[{n:'Siège'}],logSeq:0,noSum:false,st:{pc:0,streak:0,best:0,tvaOk:0,bilOk:0,mis:0,pos:0,taxOk:0},tro:[],qInv:0,day:0,cash:5000,rep:50,pal:1,myH:8,clients:[],dossiers:[],staff:[],cands:[],prospects:[],log:[],months:[],nid:1,tvaDue:0,tvaDed:0,qNet:0,qFees:0,qMis:0,qSoft:0,mMis:0,quarters:[],me:{perso:2000,sal:0,inv:0,loan:0,flvl:0,owned:[]}};
  for(const f of ['Indépendant','ASBL']){const c=makeClient(f);c.id=uid();c.mk=c.fee;S.clients.push(c);addDossier(c,'enc')}
  for(let i=0;i<5;i++)S.cands.push(candidate());
  S.prospects.push(prospect());
@@ -337,6 +363,8 @@ function migrate(){
  for(const s of S.staff.concat(S.cands)){if(!s.wk)s.wk=['J','J','J','J','J'];if(s.cg===undefined)s.cg=20}
  for(const d of S.dossiers){if(d.type==='tva'&&!d.q)d.q={lines:tvaLines(client(d.cid)||{diff:1})};if(d.type==='bil'&&!(d.q&&d.q.bal))d.q={bal:genBilan(client(d.cid)||{diff:1})};if((d.type==='ipp'||d.type==='isoc')&&!(d.q&&d.q.items))d.q=genTax(client(d.cid)||{diff:1},d.type)}
  if(S.st&&S.st.taxOk===undefined)S.st.taxOk=0;
+ if(!S.offs)S.offs=[{n:'Siège'}];if(S.logSeq===undefined)S.logSeq=0;
+ for(const d of S.dossiers)if(d.type==='clo'&&!(d.q&&d.q.items))d.q=genClo(client(d.cid)||{diff:1});
  if(!S.eq)S.eq={scan:0,ocr:0,ecran:0,srv:0};if(!S.svc)S.svc={paie:false,cons:false};if(!S.st)S.st={pc:0,streak:0,best:0,tvaOk:0,bilOk:0,mis:0,pos:0};if(!S.tro)S.tro=[];if(S.qInv===undefined)S.qInv=0;
  for(const c of S.clients)if(!c.svc)c.svc={};
  if(!S.me)S.me={perso:2000,sal:0,inv:0,loan:0,flvl:0,owned:[]};
@@ -375,7 +403,7 @@ function genBilan(cl){
 function expected(lines){return gridsFrom(lines,lines.map(lineGrid))}
 
 function complete(d,lvl,manual){
- S.dossiers=S.dossiers.filter(x=>x!==d);
+ S.dossiers=S.dossiers.filter(x=>x!==d);S.dayDone=(S.dayDone||0)+1;
  const err=manual?d.errs>0:Math.random()<(lvl<d.diff?.3*(d.diff-lvl):0)*(1-.25*S.eq.srv);
  if(d.own){const g=expected(d.q.lines),net=r2(g['71']-g['72']);S.cash-=net;
   log(net>=0?`TVA du bureau versée au SPF Finances : ${eur2(net)}.`:`TVA du bureau récupérée : ${eur2(-net)}.`);
@@ -392,7 +420,7 @@ function complete(d,lvl,manual){
 }
 function monthEnd(day){
  const fees=S.clients.reduce((a,c)=>a+feeOf(c),0),sal=S.staff.reduce((a,s)=>a+s.sal,0),onss=Math.round(sal*.27),
-  loyer=PAL[S.pal].loyer,soft=45*(S.staff.length+1),struct=150*S.pal*S.pal;
+  loyer=PAL[S.pal].loyer+ANT.loyer*(S.offs.length-1),soft=45*(S.staff.length+1),struct=150*S.pal*S.pal;
  const dir=S.me.sal,mis=S.mMis,net=fees+mis-sal-onss-loyer-soft-struct-dir;
  S.cash+=net-mis+fees*.21-(soft+struct)*.21;S.tvaDue+=fees*.21;S.tvaDed+=(soft+struct)*.21;
  S.qNet+=net;if(net>0)S.st.pos++;else S.st.pos=0;S.qFees+=fees;S.qSoft+=soft+struct;S.mMis=0;
@@ -418,6 +446,7 @@ function quarterEnd(day){
  S.qNet=0;S.qInv=0;S.qFees=0;S.qMis=0;S.qSoft=0;S.tvaDue=0;S.tvaDed=0;
 }
 function endDay(){
+ const before={cash:S.cash,rep:S.rep,seq:S.logSeq||0,day:S.day};S.dayDone=0;
  for(const s of S.staff){
   const sh=s.wk[dateOf(S.day).getDay()-1]||'J',base=SHIFT[sh].h;let hrs=base*SPEED[s.lvl]*(1+.08*S.eq.scan);s.xp+=base;
   if(sh==='C')s.cg-=1;else if(sh!=='J')s.cg-=.5;
@@ -438,6 +467,7 @@ function endDay(){
    if(m1===2&&c.forme!=='Indépendant')addDossier(c,'bil');
    if(m1===4&&c.forme==='Indépendant')addDossier(c,'ipp');
    if(m1===6&&['SRL','SA','Groupe'].includes(c.forme))addDossier(c,'isoc');
+   if(m1===0&&['SRL','SA','Groupe'].includes(c.forme))addDossier(c,'clo');
    if(c.svc&&c.svc.paie)addDossier(c,'paie');
    if(c.svc&&c.svc.cons&&m1%3===0)addDossier(c,'cons');
   }
@@ -455,8 +485,9 @@ function endDay(){
  }
  S.prospects=S.prospects.filter(p=>p.exp>=S.day);
  if(S.prospects.length<3&&Math.random()<.15+S.rep/250){S.prospects.push(prospect());log('Un nouveau prospect demande une offre.')}
- save();render();
  if(S.cash<0)toastWarn();
+ save();render();
+ if(!S.noSum)showSummary(before);
 }
 function toastWarn(){log('Attention : trésorerie négative. Réduisez vos charges ou trouvez des clients.')}
 
@@ -467,11 +498,11 @@ const ACT={
   if(p.mis){const m=MIS[p.mi];S.prospects=S.prospects.filter(x=>x!==p);
    S.dossiers.push({id:uid(),cid:null,cname:p.name,type:'mis',lab:`${m.lab} — ${p.name}`,h:m.h,done:0,n:0,diff:m.diff,dl:S.day+30,who:null,late:false,errs:0,piece:null,fee:p.fee});
    log(`Mission acceptée : ${m.t} pour ${p.name} (${eur(p.fee)} HTVA à la livraison).`);save();render();return}
-  if(S.clients.length>=PAL[S.pal].maxC){log('Capacité maximale atteinte pour ce palier.');render();return}
+  if(S.clients.length>=maxC()){log('Capacité maximale atteinte pour ce palier.');render();return}
   p.c.since=S.day;S.clients.push(p.c);S.prospects=S.prospects.filter(x=>x!==p);addDossier(p.c,'rep');addDossier(p.c,'enc');
   log(`${p.c.name} devient client (${eur(p.c.fee)} / mois).`);save();render()},
  refuse:(id)=>{S.prospects=S.prospects.filter(x=>x.id!=id);save();render()},
- hire:(id)=>{const c=S.cands.find(x=>x.id==id);if(!c)return;if(S.staff.length>=PAL[S.pal].maxS)return;
+ hire:(id)=>{const c=S.cands.find(x=>x.id==id);if(!c)return;if(S.staff.length>=maxS())return;
   S.staff.push(c);S.cands=S.cands.filter(x=>x!==c);log(`${c.name} rejoint l'équipe comme ${ROLE[c.lvl].t}.`);save();render()},
  fire:(id)=>{const s=staffBy(+id);if(!s)return;
   if(M?.confirmFire!==s.id){M={confirmFire:s.id};openFire(s);return}
@@ -492,6 +523,16 @@ const ACT={
   if(c.sat>=55){c.svc[k]=true;log(`${c.name} accepte le service ${SVC[k].n} (+${eur(svcFee(c,k))} / mois).`);if(k==='paie')addDossier(c,'paie')}
   else{c.offered=c.offered||{};c.offered[k]=S.day;log(`${c.name} refuse : pas assez satisfait pour l'instant.`)}save();render()},
  stopsvc:(v)=>{const [id,k]=v.split(':'),c=client(+id);if(!c)return;c.svc[k]=false;log(`${SVC[k].n} arrêté pour ${c.name}.`);save();render()},
+ nosum:()=>{S.noSum=true;save();closeModal()},
+ sumon:()=>{S.noSum=false;save();render()},
+ openoff:(t)=>{if(S.pal<ANT.pal||S.cash<ANT.cost||S.offs.length>ANT.max||S.offs.some(o=>o.n===t))return;S.cash-=ANT.cost;S.offs.push({n:t});log(`Ouverture d'une antenne à ${t}.`);save();render()},
+ soff:(v)=>{const [id,o]=v.split(':').map(Number),s=staffBy(id);if(!s)return;s.off=o;S.dossiers.forEach(d=>{if(d.who===s.id&&offOf(d)!==null&&offOf(d)!==o)d.who=null});save();render()},
+ auto:()=>{let n=0;
+  for(const d of S.dossiers.filter(x=>x.who===null).sort((a,b)=>a.dl-b.dl)){
+   const pool=S.staff.filter(s=>offOf(d)===null||(s.off||0)===offOf(d));if(!pool.length)continue;
+   const cap=s=>Math.max(.1,s.wk.reduce((a,w)=>a+SHIFT[w].h,0)*SPEED[s.lvl]),load=s=>S.dossiers.filter(x=>x.who===s.id).reduce((a,x)=>a+x.h-x.done,0)/cap(s);
+   const ok=pool.filter(s=>s.lvl>=d.diff),c=(ok.length?ok:pool).sort((a,b)=>load(a)-load(b)||b.lvl-a.lvl)[0];d.who=c.id;n++}
+  log(n?`${n} dossier${n>1?'s':''} réparti${n>1?'s':''} automatiquement.`:"Aucun dossier n'a pu être réparti : pas de collaborateur disponible.");save();render()},
  xcls:(v)=>{if(!M||!M.cls||M.res)return;const [i,k]=v.split(':');M.cls[+i]=k;renderForm()},
  taxform:(id)=>openForm(+id),
  dview:(v)=>{dview=v;render()},
@@ -571,6 +612,7 @@ function validatePiece(){
  save();renderPiece();renderTop();
 }
 function formSpec(d){
+ if(d.type==='clo')return {title:'Écritures de clôture',cost:1};
  if(d.type==='ipp'||d.type==='isoc')return {title:d.type==='ipp'?'Déclaration IPP':'Déclaration ISoc',cost:1};
  if(d.type==='bil'){const B=d.q.bal;return {title:'Bilan annuel',sub:'balance de clôture de l\'exercice',cost:2,fields:BFIELDS,exp:B.exp,
   table:`<tr><th>Compte</th><th>Libellé</th><th class="n">Débit</th><th class="n">Crédit</th></tr>${B.L.map(l=>`<tr><td class="mono">${l[0]}</td><td>${esc(l[1])}</td><td class="n">${l[3]==='D'?eur(l[2]):''}</td><td class="n">${l[3]==='C'?eur(l[2]):''}</td></tr>`).join('')}`}}
@@ -601,6 +643,17 @@ function renderTvaForm(){
  else{const bad=L.filter((l,i)=>cls[i]!==lineGrid(l)).length;h=h.replace('<h3>Déclaration calculée</h3>',`<div class="verdict ${bad?'p-red':'p-ok'}">${bad?`${bad} pièce${bad>1?'s':''} mal classée${bad>1?'s':''}.`:'Déclaration correcte.'}</div><h3>Déclaration déposée</h3>`)+'<button data-act="close">Fermer</button>'}
  document.getElementById('sheet').innerHTML=h;
 }
+function renderCloForm(){
+ const d=M.d,q=d.q,cls=M.cls,done=!!M.res,all=cls.every(Boolean);
+ let h=`<div class="rowx"><h2>Écritures de clôture</h2><button data-act="close">Fermer</button></div>
+ <div class="sub">${esc(dname(d))} · fin d'exercice · choisissez l'écriture à passer pour chaque situation</div>`;
+ q.items.forEach((it,i)=>{h+=`<div class="card"><span>${esc(it.lab)}</span>
+  <div class="opts one">${it.opts.map(k=>`<button class="${cls[i]===k?'sel':''} ${done&&cls[i]===k&&k!==it.cat?'bad':''}" ${done?'disabled':''} data-act="xcls" data-v="${i}:${k}"><span class="mono">D ${ENT[k][0]}</span><span class="mono">C ${ENT[k][1]}</span></button>`).join('')}</div>
+  ${done?`<div class="sub ${cls[i]===it.cat?'p-ok':'p-red'}">${cls[i]===it.cat?'Correct':'Il fallait'} : ${ENT[it.cat][0]} au débit, ${ENT[it.cat][1]} au crédit, pour ${eur(it.amt)}.</div>`:''}</div>`});
+ if(!done)h+=`<button class="pri" data-act="sendTva" ${all?'':'disabled'}>${all?'Passer les écritures (1 h)':`Encore ${cls.filter(x=>!x).length} situation(s)`}</button>`;
+ else{const bad=q.items.filter((it,i)=>cls[i]!==it.cat).length;h+=`<div class="verdict ${bad?'p-red':'p-ok'}">${bad?`${bad} écriture${bad>1?'s':''} fausse${bad>1?'s':''}.`:'Toutes les écritures sont correctes.'}</div><button data-act="close">Fermer</button>`}
+ document.getElementById('sheet').innerHTML=h;
+}
 function renderTaxForm(){
  const d=M.d,q=d.q,cls=M.cls,done=!!M.res,all=cls.every(Boolean),opts=TAXO[q.type],lab=Object.fromEntries(opts),calc=taxCalc(q,cls);
  let h=`<div class="rowx"><h2>${M.sp.title}</h2><button data-act="close">Fermer</button></div>
@@ -622,6 +675,7 @@ function openForm(id){
 function renderForm(){
  if(M.d.type==='tva')return renderTvaForm();
  if(M.d.type==='ipp'||M.d.type==='isoc')return renderTaxForm();
+ if(M.d.type==='clo')return renderCloForm();
  const d=M.d,sp=M.sp,g=sp.exp,bil=d.type==='bil';
  let h=`<div class="rowx"><h2>${sp.title}</h2><button data-act="close">Fermer</button></div>
  <div class="sub">${esc(dname(d))} · ${sp.sub}</div><div class="card scroll"><table>${sp.table}</table></div>`;
@@ -640,7 +694,7 @@ function renderForm(){
 }
 function validateForm(){
  const d=M.d,sp=M.sp;if(!S.dossiers.includes(d))return;
- if(d.type==='ipp'||d.type==='isoc'){if(!M.cls.every(Boolean))return;const bad=d.q.items.filter((it,i)=>M.cls[i]!==it.cat).length;if(!bad)S.st.taxOk++;
+ if(d.type==='ipp'||d.type==='isoc'||d.type==='clo'){if(!M.cls.every(Boolean))return;const bad=d.q.items.filter((it,i)=>M.cls[i]!==it.cat).length;if(!bad&&d.type!=='clo')S.st.taxOk++;if(!bad&&d.type==='clo')S.st.bilOk++;
   d.errs=Math.min(3,bad);d.done=d.h;S.myH-=sp.cost;M.res={};complete(d,3,true);save();renderForm();renderTop();return}
  if(d.type==='tva'){if(!M.cls.every(Boolean))return;const bad=d.q.lines.filter((l,i)=>M.cls[i]!==lineGrid(l)).length;if(!bad)S.st.tvaOk++;
   d.errs=Math.min(3,bad);d.done=d.h;S.myH-=sp.cost;M.res={};complete(d,3,true);save();renderForm();renderTop();return}
@@ -649,6 +703,20 @@ function validateForm(){
  const bad=sp.fields.filter(([k])=>Math.abs(vals[k]-g[k])>1).length;if(!bad)S.st.bilOk++;
  d.errs=Math.min(3,bad);d.done=d.h;S.myH-=sp.cost;M.res={vals};
  complete(d,3,true);save();renderForm();renderTop();
+}
+function showSummary(b){
+ const ev=S.log.filter(l=>l.q>b.seq).reverse(),dc=S.cash-b.cash,dr=S.rep-b.rep;
+ const late=S.dossiers.filter(d=>d.late).length,soon=S.dossiers.filter(d=>!d.late&&d.dl-S.day<=3&&d.who===null).length,free=S.dossiers.filter(d=>d.who===null).length;
+ const al=[];if(late)al.push(`${late} dossier${late>1?'s':''} en retard`);if(soon)al.push(`${soon} échéance${soon>1?'s':''} dans les 3 jours sans personne dessus`);
+ if(free&&!soon)al.push(`${free} dossier${free>1?'s':''} non attribué${free>1?'s':''}`);if(S.cash<0)al.push('Trésorerie négative');
+ const sg=(v,f)=>`<span class="${v<0?'p-red':v>0?'p-ok':''}">${v>0?'+':v<0?'− ':''}${f(Math.abs(v))}</span>`;
+ document.getElementById('sheet').innerHTML=`<div class="rowx"><h2>Résumé du ${fdate(b.day)}</h2></div>
+ <div class="card"><div class="rowx"><span>Dossiers terminés</span><b class="mono">${S.dayDone||0}</b></div>
+ <div class="rowx"><span>Trésorerie</span><b class="mono">${sg(dc,eur)}</b></div><div class="rowx"><span>Réputation</span><b class="mono">${sg(Math.round(dr*10)/10,v=>v.toString().replace('.',','))}</b></div></div>
+ ${al.length?`<h3>À surveiller</h3><div class="card">${al.map(a=>`<div class="p-amber">${a}</div>`).join('')}</div>`:''}
+ <h3>Événements</h3><div class="card log">${ev.length?ev.map(l=>`<div>${esc(l.t)}</div>`).join(''):'<div>Journée calme.</div>'}</div>
+ <div class="btns"><button class="pri" data-act="close">Continuer</button><button data-act="nosum" data-v="1">Ne plus afficher</button></div>`;
+ document.getElementById('modal').hidden=false;
 }
 function closeModal(){M=null;document.getElementById('modal').hidden=true;render()}
 function openFire(s){document.getElementById('sheet').innerHTML=`<h2>Licencier ${esc(s.name)} ?</h2><p class="sub">Indemnité de préavis : ${eur(s.sal)}, payée tout de suite. Ses dossiers repassent en « non attribué ».</p><div class="btns"><button class="dan" data-act="fire" data-v="${s.id}">Confirmer le licenciement</button><button data-act="close">Annuler</button></div>`;document.getElementById('modal').hidden=false}
@@ -659,7 +727,7 @@ function renderTop(){
  document.getElementById('topDate').textContent=fdate(S.day);
  const c=document.getElementById('tCash');c.textContent=eur(S.cash);
  document.getElementById('tRep').textContent=Math.round(S.rep)+' / 100';
- document.getElementById('tCli').textContent=`${S.clients.length} / ${PAL[S.pal].maxC}`;
+ document.getElementById('tCli').textContent=`${S.clients.length} / ${maxC()}`;
  document.getElementById('myH').textContent=S.myH.toFixed(2).replace('.',',')+' h';
 }
 function satPill(s){return s>=60?`<span class="pill p-ok">Satisfait ${Math.round(s)}</span>`:s>=35?`<span class="pill p-amber">Mitigé ${Math.round(s)}</span>`:`<span class="pill p-red">Mécontent ${Math.round(s)}</span>`}
@@ -667,10 +735,11 @@ function dossierCard(d){
  const days=d.dl-S.day,pct=Math.round(d.done/d.h*100);
  const st=d.late?`<span class="pill p-red">En retard</span>`:days<=3?`<span class="pill p-amber">${days} j</span>`:`<span class="pill p-mut">Échéance ${fshort(d.dl)}</span>`;
  const risk=typeof d.who==='number'&&staffBy(d.who)&&staffBy(d.who).lvl<d.diff;
- const opts=`<option value="">Non attribué</option><option value="me" ${d.who==='me'?'selected':''}>Moi (directeur)</option>`+S.staff.map(s=>`<option value="${s.id}" ${d.who===s.id?'selected':''}>${esc(s.name)} · niv. ${s.lvl}</option>`).join('');
+ const opts=`<option value="">Non attribué</option><option value="me" ${d.who==='me'?'selected':''}>Moi (directeur)</option>`+S.staff.filter(s=>d.who===s.id||offOf(d)===null||(s.off||0)===offOf(d)).map(s=>`<option value="${s.id}" ${d.who===s.id?'selected':''}>${esc(s.name)} · niv. ${s.lvl}${S.offs.length>1?' · '+esc(S.offs[s.off||0].n):''}</option>`).join('');
  let act='';
  if(d.who==='me')act=d.type==='enc'?`<button class="pri" data-act="encode" data-v="${d.id}" ${S.myH<pcost()?'disabled':''}>Encoder (${leftPieces(d)} pièces)</button>`
   :d.type==='tva'?`<button class="pri" data-act="tvaform" data-v="${d.id}" ${S.myH<1?'disabled':''}>Remplir la déclaration</button>`
+  :d.type==='clo'?`<button class="pri" data-act="taxform" data-v="${d.id}" ${S.myH<1?'disabled':''}>Passer les écritures (1 h)</button>`
   :(d.type==='ipp'||d.type==='isoc')?`<button class="pri" data-act="taxform" data-v="${d.id}" ${S.myH<1?'disabled':''}>Remplir la déclaration (1 h)</button>`
   :d.type==='bil'?`<button class="pri" data-act="bilform" data-v="${d.id}" ${S.myH<2?'disabled':''}>Monter le bilan (2 h)</button>`
   :`<button class="pri" data-act="work" data-v="${d.id}" ${S.myH<=0?'disabled':''}>Travailler 2 h</button>`;
@@ -685,8 +754,16 @@ function svcRow(c){
  return `<div class="btns">${ks.map(k=>c.svc[k]?`<span class="pill p-ok">${SVC[k].s} +${eur(svcFee(c,k))}</span><button data-act="stopsvc" data-v="${c.id}:${k}">Arrêter</button>`
   :`<button data-act="offer" data-v="${c.id}:${k}" ${c.offered&&c.offered[k]&&S.day-c.offered[k]<20?'disabled':''}>Proposer ${SVC[k].s.toLowerCase()} (+${eur(svcFee(c,k))} / mois)</button>`).join('')}</div>`;
 }
+function vOffs(){
+ const can=S.pal>=ANT.pal&&S.offs.length<=ANT.max;
+ let h=`<div class="sec"><h3>Bureaux (${S.offs.length})</h3><div class="card">${S.offs.map((o,i)=>{const nc=S.clients.filter(c=>(c.off||0)===i).length,ns=S.staff.filter(s=>(s.off||0)===i).length;
+  return `<div class="rowx"><span class="name">${esc(o.n)}</span><span class="sub">${nc} client${nc>1?'s':''} · ${ns} collaborateur${ns>1?'s':''}</span></div>`}).join('')}
+ <div class="sub">Une antenne coûte ${eur(ANT.cost)}, puis ${eur(ANT.loyer)} de loyer par mois. Elle ajoute ${ANT.c} clients et ${ANT.s} collaborateurs à votre capacité et attire des clients de sa ville. Ses dossiers ne peuvent être traités que par son équipe ou par vous.</div>
+ ${S.pal<ANT.pal?`<div class="sub">Disponible à partir du palier ${ANT.pal}.</div>`:S.offs.length>ANT.max?'<div class="sub">Nombre maximal d\'antennes atteint.</div>':`<div class="btns">${ANTOWNS.filter(t=>!S.offs.some(o=>o.n===t)).map(t=>`<button data-act="openoff" data-v="${t}" ${S.cash<ANT.cost||!can?'disabled':''}>Ouvrir à ${t}</button>`).join('')}</div>`}</div></div>`;
+ return h;
+}
 function vEquip(){
- let h=`<div class="sec"><h3>Équipement</h3>${EQ.map(e=>{const l=S.eq[e.k],c=e.c[l];return `<div class="card"><div class="rowx"><span class="name">${e.n}</span><span class="pill ${l?'p-ok':'p-mut'}">Niveau ${l} / 3</span></div>
+ let h=vOffs()+`<div class="sec"><h3>Équipement</h3>${EQ.map(e=>{const l=S.eq[e.k],c=e.c[l];return `<div class="card"><div class="rowx"><span class="name">${e.n}</span><span class="pill ${l?'p-ok':'p-mut'}">Niveau ${l} / 3</span></div>
  <div class="sub">${e.d}</div>${l<3?`<button data-act="equip" data-v="${e.k}" ${S.cash<c*1.21?'disabled':''}>Acheter le niveau ${l+1} — ${eur(c)} HTVA</button>`:''}</div>`}).join('')}</div>`;
  h+=`<div class="sec"><h3>Services</h3>${Object.entries(SVC).map(([k,v])=>`<div class="card"><div class="rowx"><span class="name">${v.n}</span>${S.svc[k]?'<span class="pill p-ok">Disponible</span>':''}</div>
  <div class="sub">${k==='paie'?'Fiches de paie et déclarations sociales chaque mois':'Un dossier de conseil chaque trimestre'} · facturé ${Math.round(v.pct*100)} % des honoraires (min. ${eur(v.min)}).${S.svc[k]?' Proposez-le dans l\'onglet Clients.':''}</div>
@@ -696,14 +773,14 @@ function vEquip(){
 function vBureau(){
  const un=S.dossiers.filter(d=>d.who===null).length,late=S.dossiers.filter(d=>d.late).length,mine=S.dossiers.filter(d=>d.who==='me');
  const nx=PAL[S.pal+1];
- let h=`<div class="sec"><h3>Palier ${S.pal} / 4</h3><div class="card"><div class="rowx"><span class="name">${PAL[S.pal].n}</span><span class="sub">${PAL[S.pal].maxC} clients · ${PAL[S.pal].maxS} collaborateur${PAL[S.pal].maxS>1?'s':''}</span></div>
+ let h=`<div class="sec"><h3>Palier ${S.pal} / 4</h3><div class="card"><div class="rowx"><span class="name">${PAL[S.pal].n}</span><span class="sub">${maxC()} clients · ${maxS()} collaborateur${maxS()>1?'s':''}</span></div>
  ${nx?`<div class="sub">Prochain palier : <b>${nx.n}</b> — ${eur(nx.cost)}, réputation ${nx.rep} minimum. Débloque les clients ${Object.keys(CT).find(k=>CT[k].pal===S.pal+1)}.</div><button class="pri" data-act="upgrade" ${S.cash>=nx.cost&&S.rep>=nx.rep?'':'disabled'}>Passer au palier ${S.pal+1}</button>`:'<div class="sub">Palier maximal atteint.</div>'}</div></div>`;
  h+=vEquip();
  h+=`<div class="sec"><h3>À traiter</h3><div class="card"><div class="rowx"><span>Dossiers non attribués</span><b class="mono">${un}</b></div><div class="rowx"><span>Dossiers en retard</span><b class="mono ${late?'p-red':''}">${late}</b></div><div class="rowx"><span>Mes dossiers</span><b class="mono">${mine.length}</b></div>
  <button data-act="tab" data-v="dossiers">Ouvrir les dossiers</button></div></div>`;
  h+=`<div class="sec"><h3>Demandes de prospects</h3>${S.prospects.length?S.prospects.map(p=>p.mis?`<div class="card"><div class="rowx"><span class="name">${esc(MIS[p.mi].t)}</span><span class="pill p-amber">Mission</span></div>
  <div class="sub">${esc(p.name)} · ${eur(p.fee)} HTVA à la livraison · environ ${MIS[p.mi].h} h · difficulté ${'●'.repeat(MIS[p.mi].diff)}${'○'.repeat(3-MIS[p.mi].diff)} · répond avant le ${fshort(p.exp)}</div>
- <div class="btns"><button class="pri" data-act="accept" data-v="${p.id}">Accepter</button><button data-act="refuse" data-v="${p.id}">Refuser</button></div></div>`:`<div class="card"><div class="rowx"><span class="name">${esc(p.c.name)}</span><span class="pill p-mut">${p.c.forme}</span></div>
+ <div class="btns"><button class="pri" data-act="accept" data-v="${p.id}">Accepter</button><button data-act="refuse" data-v="${p.id}">Refuser</button></div></div>`:`<div class="card"><div class="rowx"><span class="name">${esc(p.c.name)}</span><span class="pill p-mut">${p.c.forme}${p.c.off?' · '+esc(S.offs[p.c.off].n):''}</span></div>
  <div class="sub">${esc(p.c.town)} · ${p.c.tva?'assujetti TVA':'non assujetti'} · répond avant le ${fshort(p.exp)}</div>
  <div class="rowx"><span class="sub">Prix du marché ${eur(p.c.mk)}</span><span class="mono">Votre offre ${eur(p.c.fee)} HTVA / mois</span></div>
  <div class="price">${[[.9,'−10 %'],[1,'Marché'],[1.1,'+10 %'],[1.25,'+25 %']].map(([f,l])=>`<button class="${Math.abs(p.c.fee/p.c.mk-f)<.02?'sel':''}" data-act="pprice" data-v="${p.id}:${f}">${l}</button>`).join('')}</div>
@@ -734,18 +811,19 @@ function vCal(){
 function vDossiers(){
  const ds=[...S.dossiers].sort((a,b)=>(a.who===null?0:1)-(b.who===null?0:1)||a.dl-b.dl);
  return `<div class="sec"><h2>Dossiers (${ds.length})</h2><div class="seg"><button class="${dview==='liste'?'sel':''}" data-act="dview" data-v="liste">Liste</button><button class="${dview==='cal'?'sel':''}" data-act="dview" data-v="cal">Calendrier</button></div>
- ${dview==='cal'?vCal():`<div class="sub">Répartissez chaque dossier. Attribuez-vous les encodages délicats pour les faire à la main.</div>${ds.length?ds.map(dossierCard).join(''):'<div class="empty">Tous les dossiers sont à jour.</div>'}`}</div>`;
+ ${dview==='cal'?vCal():`${S.dossiers.some(d=>d.who===null)&&S.staff.length?`<button class="pri" data-act="auto">Répartir automatiquement (${S.dossiers.filter(d=>d.who===null).length} libres)</button>`:''}<div class="sub">Répartissez chaque dossier. Attribuez-vous les encodages délicats pour les faire à la main.</div>${ds.length?ds.map(dossierCard).join(''):'<div class="empty">Tous les dossiers sont à jour.</div>'}`}</div>`;
 }
 function vClients(){
- return `<div class="sec"><h2>Clients (${S.clients.length} / ${PAL[S.pal].maxC})</h2>${S.clients.map(c=>{const n=S.dossiers.filter(d=>d.cid===c.id).length;
- return `<div class="card"><div class="rowx"><span class="name">${esc(c.name)}</span>${satPill(c.sat)}</div><div class="sub">${c.forme} · ${esc(c.town)} · ${c.tva?'TVA trimestrielle':'non assujetti'} · client depuis le ${fshort(c.since)}</div>
+ return `<div class="sec"><h2>Clients (${S.clients.length} / ${maxC()})</h2>${S.clients.map(c=>{const n=S.dossiers.filter(d=>d.cid===c.id).length;
+ return `<div class="card"><div class="rowx"><span class="name">${esc(c.name)}</span>${satPill(c.sat)}</div><div class="sub">${c.forme} · ${esc(c.town)}${S.offs.length>1?` · bureau : ${esc(S.offs[c.off||0].n)}`:''} · ${c.tva?'TVA trimestrielle':'non assujetti'} · client depuis le ${fshort(c.since)}</div>
  <div class="rowx"><span class="mono">${eur(c.fee)} HTVA / mois</span><span class="sub">${n} dossier${n>1?'s':''} ouvert${n>1?'s':''}</span></div>
  <div class="rowx"><span class="sub">Marché ${eur(c.mk||c.fee)} · ${c.fee>(c.mk||c.fee)*1.03?'au-dessus':c.fee<(c.mk||c.fee)*.97?'en dessous':'au prix'}</span><div class="btns"><button data-act="cprice" data-v="${c.id}:0.95">−5 %</button><button data-act="cprice" data-v="${c.id}:1.05">+5 %</button></div></div>${svcRow(c)}</div>`}).join('')||'<div class="empty">Aucun client.</div>'}</div>`;
 }
 function vEquipe(){
- const full=S.staff.length>=PAL[S.pal].maxS;
- let h=`<div class="sec"><h2>Équipe (${S.staff.length} / ${PAL[S.pal].maxS})</h2>${S.staff.map(s=>{const load=S.dossiers.filter(d=>d.who===s.id).reduce((a,d)=>a+d.h-d.done,0);const nxt=s.lvl===1?700:s.lvl===2?1800:0;
+ const full=S.staff.length>=maxS();
+ let h=`<div class="sec"><h2>Équipe (${S.staff.length} / ${maxS()})</h2>${S.staff.map(s=>{const load=S.dossiers.filter(d=>d.who===s.id).reduce((a,d)=>a+d.h-d.done,0);const nxt=s.lvl===1?700:s.lvl===2?1800:0;
  return `<div class="card"><div class="rowx"><span class="name">${esc(s.name)}</span><span class="pill p-mut">${ROLE[s.lvl].t}</span></div>
+ ${S.offs.length>1?`<div class="btns">${S.offs.map((o,i)=>`<button class="${(s.off||0)===i?'pri':''}" data-act="soff" data-v="${s.id}:${i}">${esc(o.n)}</button>`).join('')}</div>`:''}
  <div class="wk">${s.wk.map((w,i)=>`<button class="${w}" data-act="shift" data-v="${s.id}:${i}" aria-label="${DAYS[i]} : ${SHIFT[w].l}">${DAYS[i]}<small>${SHIFT[w].l}</small></button>`).join('')}</div>
  <div class="sub">Congés restants cette année : ${s.cg.toString().replace('.',',')} j · touchez un jour pour le changer</div>
  <div class="sub">Salaire ${eur(s.sal)} brut · charge en cours ${load.toFixed(1).replace('.',',')} h · ${(s.wk.reduce((a,w)=>a+SHIFT[w].h,0)*SPEED[s.lvl]).toFixed(1).replace('.',',')} h utiles / semaine</div>
@@ -781,7 +859,7 @@ function vCharts(){
  ${chart('Nombre de clients',cl.map(m=>m.cli),cl.map(sl),v=>String(Math.round(v)))}</div>`;
 }
 function vFin(){
- const fees=S.clients.reduce((a,c)=>a+feeOf(c),0),sal=S.staff.reduce((a,s)=>a+s.sal,0),onss=Math.round(sal*.27),loyer=PAL[S.pal].loyer,soft=45*(S.staff.length+1),st=150*S.pal*S.pal,net=fees+S.mMis-sal-onss-loyer-soft-st-S.me.sal;
+ const fees=S.clients.reduce((a,c)=>a+feeOf(c),0),sal=S.staff.reduce((a,s)=>a+s.sal,0),onss=Math.round(sal*.27),loyer=PAL[S.pal].loyer+ANT.loyer*(S.offs.length-1),soft=45*(S.staff.length+1),st=150*S.pal*S.pal,net=fees+S.mMis-sal-onss-loyer-soft-st-S.me.sal;
  const row=(l,v,neg)=>`<tr><td>${l}</td><td class="n ${neg&&v?'p-red':''}">${neg&&v?'− ':''}${eur(v)}</td></tr>`;
  let h=`<div class="sec"><h2>Prévision fin de mois</h2><div class="card scroll"><table>
  ${row('Honoraires clients (HTVA)',fees)}${S.mMis?row('Missions livrées ce mois (HTVA)',S.mMis):''}${row('Salaires bruts',sal,1)}${row('Charges patronales (27 %)',onss,1)}${row('Loyer',loyer,1)}${row('Logiciel comptable',soft,1)}${row('Frais de structure',st,1)}${row('Rémunération du dirigeant',S.me.sal,1)}
@@ -796,7 +874,7 @@ function vFin(){
  if(S.quarters.length)h+=`<div class="sec"><h3>Clôtures trimestrielles</h3><div class="card scroll"><table><tr><th>Trimestre</th><th class="n">Résultat</th><th class="n">Impôt</th></tr>${S.quarters.map(q=>`<tr><td>${q.q}</td><td class="n ${q.res<0?'p-red':''}">${eur(q.res)}</td><td class="n">${eur(q.isoc)}</td></tr>`).join('')}</table></div></div>`;
  h+=vCharts();
  h+=`<div class="sec"><h3>Historique</h3>${S.months.length?`<div class="card scroll"><table><tr><th>Mois</th><th class="n">Honoraires</th><th class="n">Charges</th><th class="n">Résultat</th></tr>${S.months.map(m=>`<tr><td style="text-transform:capitalize">${m.m}</td><td class="n">${eur(m.fees)}</td><td class="n">${eur(m.fees-m.net)}</td><td class="n ${m.net<0?'p-red':''}">${eur(m.net)}</td></tr>`).join('')}</table></div>`:'<div class="empty">Le premier mois n\'est pas encore clôturé.</div>'}</div>`;
- h+=`<div class="sec"><h3>Partie</h3><div class="card"><div class="sub">Sauvegarde automatique sur cet appareil.</div><button class="dan" data-act="reset">Recommencer une partie</button></div></div>`;
+ h+=`<div class="sec"><h3>Partie</h3><div class="card"><div class="sub">Sauvegarde automatique sur cet appareil.</div>${S.noSum?'<button data-act="sumon">Réafficher le résumé de la journée</button>':''}<button class="dan" data-act="reset">Recommencer une partie</button></div></div>`;
  return h;
 }
 function vMoi(){
