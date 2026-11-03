@@ -85,6 +85,14 @@ td.n,th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabula
 .price button{padding:6px 2px;font-size:12px}
 .price button.sel{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 .grid.b{grid-template-columns:1fr 9em}
+.ln{display:flex;flex-direction:column;gap:6px;padding:10px 0;border-bottom:1px solid var(--line)}
+.ln:last-child{border-bottom:0}
+.gb{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.gb button{padding:6px 2px;font-size:12px;display:flex;flex-direction:column;align-items:center;min-width:0}
+.gb button b{font-family:var(--f-mono);font-weight:500;font-size:14px;color:var(--accent)}
+.gb button.sel{border-color:var(--accent);background:var(--accent);color:var(--accent-ink)}
+.gb button.sel b{color:var(--accent-ink)}
+.gb button.bad{border-color:var(--red);box-shadow:inset 0 0 0 1px var(--red)}
 .nav button{border:0;background:transparent;border-radius:0;padding:8px 2px 10px;font-size:12px;font-weight:600;color:var(--muted);position:relative;border-top:2px solid transparent}
 .nav button.on{color:var(--accent);border-top-color:var(--accent)}
 .nav .bdg{position:absolute;top:3px;left:calc(50% + 14px);background:var(--red);color:#fff;font-size:10px;border-radius:999px;padding:0 5px;font-family:var(--f-mono)}
@@ -397,6 +405,7 @@ const ACT={
  tvaform:(id)=>openForm(+id),
  bilform:(id)=>openForm(+id),
  sendTva:()=>validateForm(),
+ tcls:(v)=>{if(!M||!M.cls||M.res)return;const [i,k]=v.split(':');M.cls[+i]=k;renderForm()},
  pprice:(v)=>{const [id,f]=v.split(':'),p=S.prospects.find(x=>x.id==id);if(!p)return;p.c.fee=Math.round(p.c.mk*+f/5)*5;save();render()},
  cprice:(v)=>{const [id,f]=v.split(':'),c=client(+id);if(!c)return;c.fee=Math.max(5,Math.round(c.fee*+f/5)*5);save();render()},
  train:(id)=>{const s=staffBy(+id);if(!s||s.lvl>=3)return;const cost=s.lvl===1?600:1200;if(S.cash<cost||(s.trd&&S.day-s.trd<20))return;
@@ -471,12 +480,34 @@ function formSpec(d){
  return {title:'Déclaration TVA',sub:'trimestre écoulé · montants HTVA',cost:1,fields:GRIDS,exp:expected(d.q.lines),
   table:`<tr><th>Pièce</th><th>Type</th><th class="n">Taux</th><th class="n">HTVA</th></tr>${d.q.lines.map(l=>`<tr><td>${esc(l.lab)}</td><td>${KIND[l.kind]}</td><td class="n">${l.rate} %</td><td class="n">${eur2(l.amt)}</td></tr>`).join('')}`};
 }
+const GLAB={'01':'Ventes 6 %','02':'Ventes 12 %','03':'Ventes 21 %','81':'Marchandises','82':'Services et biens divers','83':'Investissements'};
+const lineGrid=l=>l.kind==='v'?(l.rate===6?'01':l.rate===12?'02':'03'):{m:'81',s:'82',i:'83'}[l.kind];
+function gridsFrom(lines,cls){
+ const g={};GRIDS.forEach(([k])=>g[k]=0);
+ lines.forEach((l,i)=>{const k=cls[i];if(!k)return;g[k]+=l.amt;const t=l.amt*l.rate/100;if(['01','02','03'].includes(k))g['54']+=t;else g['59']+=t});
+ for(const k in g)g[k]=r2(g[k]);const sol=r2(g['54']-g['59']);g['71']=sol>0?sol:0;g['72']=sol<0?-sol:0;return g;
+}
+function renderTvaForm(){
+ const d=M.d,L=d.q.lines,cls=M.cls,done=!!M.res,g=gridsFrom(L,cls),all=cls.every(Boolean);
+ let h=`<div class="rowx"><h2>Déclaration TVA</h2><button data-act="close">Fermer</button></div>
+ <div class="sub">${esc(dname(d))} · trimestre écoulé · touchez la grille de chaque pièce</div><div class="card">`;
+ L.forEach((l,i)=>{const opts=l.kind==='v'?['01','02','03']:['81','82','83'],good=lineGrid(l);
+  h+=`<div class="ln"><div class="rowx"><span>${l.kind==='v'?'Vente : ':'Achat : '}${esc(l.lab)}</span></div>
+  <div class="rowx"><span class="mono">${eur2(l.amt)} HTVA</span><span class="sub">TVA ${l.rate} % = ${eur2(r2(l.amt*l.rate/100))}</span></div>
+  <div class="gb">${opts.map(k=>`<button class="${cls[i]===k?'sel':''} ${done&&cls[i]===k&&k!==good?'bad':''}" ${done?'disabled':''} data-act="tcls" data-v="${i}:${k}"><b>${k}</b>${GLAB[k]}</button>`).join('')}</div>
+  ${done&&cls[i]!==good?`<div class="sub p-red">Il fallait la grille ${good} — ${GLAB[good]}.</div>`:''}</div>`});
+ h+=`</div><h3>Déclaration calculée</h3><div class="card scroll"><table>${GRIDS.map(([k,l])=>`<tr><td><span class="mono">${k}</span> ${l}</td><td class="n">${eur2(g[k])}</td></tr>`).join('')}</table></div>`;
+ if(!done)h+=`<button class="pri" data-act="sendTva" ${all?'':'disabled'}>${all?'Déposer la déclaration (1 h)':`Encore ${cls.filter(x=>!x).length} pièce(s) à classer`}</button>`;
+ else{const bad=L.filter((l,i)=>cls[i]!==lineGrid(l)).length;h=h.replace('<h3>Déclaration calculée</h3>',`<div class="verdict ${bad?'p-red':'p-ok'}">${bad?`${bad} pièce${bad>1?'s':''} mal classée${bad>1?'s':''}.`:'Déclaration correcte.'}</div><h3>Déclaration déposée</h3>`)+'<button data-act="close">Fermer</button>'}
+ document.getElementById('sheet').innerHTML=h;
+}
 function openForm(id){
  const d=S.dossiers.find(x=>x.id===id);if(!d)return;const sp=formSpec(d);
  if(S.myH<sp.cost){log(`Il vous faut au moins ${sp.cost} h libres.`);render();return}
- M={tva:id,res:null,d,sp};renderForm();document.getElementById('modal').hidden=false;
+ M={tva:id,res:null,d,sp,cls:d.type==='tva'?d.q.lines.map(()=>null):null};renderForm();document.getElementById('modal').hidden=false;
 }
 function renderForm(){
+ if(M.d.type==='tva')return renderTvaForm();
  const d=M.d,sp=M.sp,g=sp.exp,bil=d.type==='bil';
  let h=`<div class="rowx"><h2>${sp.title}</h2><button data-act="close">Fermer</button></div>
  <div class="sub">${esc(dname(d))} · ${sp.sub}</div><div class="card scroll"><table>${sp.table}</table></div>`;
@@ -494,7 +525,10 @@ function renderForm(){
  document.getElementById('sheet').innerHTML=h;
 }
 function validateForm(){
- const d=M.d,sp=M.sp;if(!S.dossiers.includes(d))return;const g=sp.exp,vals={};
+ const d=M.d,sp=M.sp;if(!S.dossiers.includes(d))return;
+ if(d.type==='tva'){if(!M.cls.every(Boolean))return;const bad=d.q.lines.filter((l,i)=>M.cls[i]!==lineGrid(l)).length;
+  d.errs=Math.min(3,bad);d.done=d.h;S.myH-=sp.cost;M.res={};complete(d,3,true);save();renderForm();renderTop();return}
+ const g=sp.exp,vals={};
  for(const [k] of sp.fields){const el=document.getElementById('g'+k),t=(el?el.value:'').replace(/[\s€]/g,'').replace(/\.(?=\d{3}(\D|$))/g,'').replace(',','.');vals[k]=parseFloat(t)||0}
  const bad=sp.fields.filter(([k])=>Math.abs(vals[k]-g[k])>1).length;
  d.errs=Math.min(3,bad);d.done=d.h;S.myH-=sp.cost;M.res={vals};
