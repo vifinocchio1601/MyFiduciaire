@@ -103,6 +103,10 @@ td.n,th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabula
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px calc(16px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px}
 .sheet>*{flex-shrink:0}
 .opts.one{grid-template-columns:1fr}
+.gb.four{grid-template-columns:repeat(4,1fr)}
+@media (max-width:420px){.gb.four{grid-template-columns:repeat(2,1fr)}}
+.steps{display:flex;flex-direction:column;gap:6px;counter-reset:st}
+.steps .on{border-color:var(--accent);background:var(--accent);color:var(--accent-ink)}
 .opts button.bad{border-color:var(--red);box-shadow:inset 0 0 0 1px var(--red)}
 .opts button:disabled{opacity:1}
 .cal{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
@@ -332,6 +336,40 @@ const CH=[
  {t:'La fiduciaire',d:'Devenez une vraie fiduciaire, rentable et complète.',mo:18,r:10000,g:[['Palier',()=>S.pal,3],['Clients',()=>S.clients.length,25],['Services débloqués',()=>(S.svc.paie?1:0)+(S.svc.cons?1:0),1],["Mois positifs d'affilée",()=>S.st.pos,6]]},
  {t:'Le réseau',d:'Étendez-vous dans la région.',mo:18,r:15000,g:[['Bureaux',()=>S.offs.length,2],['Clients',()=>S.clients.length,40],['Collaborateurs',()=>S.staff.length,8]]},
  {t:'Cabinet de référence',d:'Devenez le cabinet incontournable de la province.',mo:24,r:30000,g:[['Palier',()=>S.pal,4],['Clients',()=>S.clients.length,60],['Réputation',()=>S.rep,85],['Trésorerie',()=>S.cash,150000,1]]}];
+const BOPTS=[['A','Actifs immobilisés'],['St','Stocks'],['Cr','Créances'],['Li','Liquidités'],['CP','Capitaux propres'],['De','Dettes'],['Ch','Charges'],['Pr','Produits']];
+const bcat=c=>c[0]==='2'?'A':c[0]==='3'?'St':c.startsWith('40')?'Cr':(c.startsWith('55')||c.startsWith('57'))?'Li':(c[0]==='1'&&!c.startsWith('17'))?'CP':(c.startsWith('17')||c[0]==='4')?'De':c[0]==='6'?'Ch':'Pr';
+const POPTS=[['op','ONSS + précompte'],['p','Précompte seulement'],['x','Exonéré']];
+const PAIEI=[['Salaire mensuel brut',[2300,4300],'op',1],['Heures supplémentaires',[80,400],'op',.5],["Prime de fin d'année",[2300,4300],'op',.15],['Chèques-repas (part patronale)',[120,150],'x',.8],
+ ['Écochèques',[100,250],'x',.2],['Indemnité forfaitaire de télétravail',[120,155],'x',.4],['Avantage de toute nature voiture de société',[120,320],'p',.4],['Remboursement abonnement de train domicile-travail',[40,160],'x',.3]];
+function genPaie(){let it=PAIEI.filter(x=>Math.random()<x[3]);if(it.length<4)it=it.concat(PAIEI.filter(x=>!it.includes(x)).sort(()=>Math.random()-.5).slice(0,4-it.length));
+ return {emp:`${pick(F)} ${pick(L)}`,items:it.map(([lab,r,cat])=>({lab,cat,amt:Math.round(rnd(r[0],r[1])*100)/100})).sort(()=>Math.random()-.5)}}
+const CREA=['Rédiger le plan financier',"Ouvrir un compte bancaire au nom de la société et y verser l'apport","Signer l'acte constitutif chez le notaire",'Dépôt au greffe et publication au Moniteur belge',"Inscription à la BCE via un guichet d'entreprises et activation de la TVA"];
+const CREAF=[['SRL',"Pas de capital minimum, responsabilité limitée : idéal pour démarrer à deux avec un petit apport."],['SA','Exige un capital de 61 500 €, trop lourd pour 5 000 €.'],['Société simple','Pas de personnalité juridique et responsabilité illimitée des associés.'],['ASBL',"Pas faite pour une activité dont le but est d'enrichir ses membres."]];
+const EXQ={ec:[["Dans le PCMN, que regroupe la classe 6 ?",['Les charges','Les produits','Les dettes','Les stocks'],"Classe 6 : charges ; classe 7 : produits."],
+ ["À quoi sert le compte 400 ?",['Les créances clients','Les dettes fournisseurs','Le capital','La banque'],"400 : clients. 440 : fournisseurs."],
+ ["À quoi sert le compte 440 ?",['Les dettes fournisseurs','Les créances clients','La TVA due','Les rémunérations'],"440 : fournisseurs."],
+ ["Comment comptabilise-t-on un amortissement ?",['Débit 630, crédit 2x9','Débit 2x9, crédit 630','Débit 600, crédit 440','Débit 490, crédit 61'],"Dotation en charge (630) et amortissements actés en diminution de l'actif (2x9)."],
+ ["Une assurance payée en novembre couvre aussi l'année suivante. Que faire à la clôture ?",['Reporter la partie suivante en 490 Charges à reporter','Rien','La passer en 492 Charges à imputer','La mettre en produit'],"La charge qui concerne l'exercice suivant passe en 490 Charges à reporter."],
+ ["Dans quelle classe trouve-t-on les capitaux propres ?",['Classe 1','Classe 2','Classe 4','Classe 5'],"Classe 1 : capitaux propres, provisions et dettes à plus d'un an."],
+ ["Que montre le bilan ?",["Le patrimoine de l'entreprise à une date donnée","Les recettes et dépenses de l'année",'Uniquement la trésorerie','Les salaires payés'],"Le bilan est une photo du patrimoine : actif et passif à la date de clôture."],
+ ["La TVA payée sur un achat professionnel est, pour l'entreprise :",["Une créance sur l'État (411)",'Une charge (61)','Un produit (74)','Une dette (451)'],"La TVA déductible est récupérable : c'est une créance sur l'État."],
+ ["Que dit le principe de prudence ?",['On acte les pertes probables, pas les gains non réalisés','On acte tous les gains attendus',"On n'acte rien avant l'encaissement",'On évalue tout au prix du marché'],"Prudence : les risques et pertes probables sont pris en compte, les gains seulement quand ils sont réalisés."],
+ ["En partie double, chaque écriture…",['a autant au débit qu’au crédit','touche toujours la banque','a un seul compte','touche toujours un compte de résultat'],"Total des débits = total des crédits, pour chaque écriture."],
+ ["Où se trouve une provision pour risques et charges ?",['Au passif','À l’actif','Dans les produits','Dans les stocks'],"Les provisions (16) sont au passif."],
+ ["À quoi correspond le compte 7000 ?",["Au chiffre d'affaires",'Aux achats','Aux salaires','Au capital'],"70 : chiffre d'affaires."]],
+ cf:[["Quel est le taux normal de TVA en Belgique ?",['21 %','20 %','19 %','25 %'],"Taux normal : 21 %. Taux réduits : 12 % et 6 %."],
+ ["Quel est le taux normal de l'impôt des sociétés ?",['25 %','20 %','29,58 %','33,99 %'],"Taux normal de 25 % ; taux réduit PME de 20 % sur les premiers 100 000 €."],
+ ["À quel pourcentage les frais de restaurant sont-ils déductibles ?",['69 %','50 %','100 %','75 %'],"69 % déductibles, TVA non récupérable."],
+ ["Les cadeaux d'affaires sont déductibles à :",['50 %','69 %','100 %','0 %'],"50 % déductibles."],
+ ["Jusqu'à quel chiffre d'affaires peut-on opter pour la franchise TVA ?",['25 000 € HTVA','10 000 €','50 000 €','100 000 €'],"Franchise des petites entreprises : jusqu'à 25 000 € HTVA par an."],
+ ["Quel est le taux normal du précompte mobilier sur les dividendes ?",['30 %','25 %','15 %','21 %'],"Taux normal : 30 %. Des taux réduits existent sous conditions (VVPRbis)."],
+ ["Quelle part de la TVA sur une voiture de société peut-on récupérer au maximum ?",['50 %','100 %','75 %','0 %'],"Plafond de 50 % pour les voitures."],
+ ["Une livraison de biens à une société d'un autre pays de l'UE, avec numéro de TVA, est :",['Exonérée (livraison intracommunautaire)','Taxée à 21 %','Taxée au taux du pays du client par vous',"Hors champ, sans aucune formalité"],"Exonérée, avec mention du numéro du client et reprise au listing intracommunautaire."],
+ ["Des travaux immobiliers facturés à un entrepreneur enregistré relèvent :",['Du régime du cocontractant (autoliquidation)','Du taux de 6 %','Du taux de 21 % normal',"De l'exonération totale"],"Le client autoliquide la TVA ; la facture porte la mention « Autoliquidation »."],
+ ["Rénovation d'un logement privé de plus de 10 ans : quel taux de TVA ?",['6 %','12 %','21 %','0 %'],"6 % avec attestation du client."],
+ ["Une ASBL sans activité lucrative est soumise à :",["L'impôt des personnes morales","L'impôt des sociétés","L'impôt des personnes physiques",'Aucun impôt ni obligation'],"Impôt des personnes morales."],
+ ["À partir de quel chiffre d'affaires annuel la déclaration TVA mensuelle devient-elle obligatoire ?",['Plus de 2 500 000 € HTVA','Plus de 250 000 €','Plus de 25 000 €','Plus de 1 000 000 €'],"Au-delà de 2 500 000 € HTVA (seuil plus bas pour certains biens), déclaration mensuelle."]]};
+const EXN={ec:['Expert-comptable',"Titre délivré après l'examen d'aptitude de l'ITAA. Nécessaire pour passer au palier 3 et +5 de réputation."],cf:['Conseiller fiscal certifié','Double les honoraires des rendez-vous et +20 % sur les missions. Exige le titre d\'expert-comptable.']};
 const chDays=c=>Math.round(c.mo*21.7);
 function checkCareer(){const K=S.career;if(!K||K.done)return;const c=CH[K.ch];if(!c)return;
  if(c.g.every(([,f,t])=>f()>=t)){const ok=S.day<=K.start+chDays(c);K.stars.push(ok?1:0);S.cash+=c.r;log(`Chapitre « ${c.t} » réussi${ok?' dans les temps':' (en retard)'} : prime de ${eur(c.r)}.`);
@@ -341,7 +379,7 @@ const ITEMS=[{n:'Vélo électrique',p:2500},{n:"Week-end à Rome",p:1200},{n:'Mo
 const DSAL=[0,1500,2500,4000,6000];
 const BFIELDS=[['A','Actifs immobilisés (20/28)'],['St','Stocks (3)'],['Cr','Créances commerciales (40)'],['Li','Valeurs disponibles (54/58)'],['TA',"Total de l'actif"],['CP','Capitaux propres, résultat compris (10/15)'],['De','Dettes (17/48)'],['TP','Total du passif'],['CA',"Chiffre d'affaires (70)"],['R',"Résultat de l'exercice"]];
 const KIND={v45:'Vente cocontractant',v46:'Livraison intracom.',nc:'Note de crédit reçue',ic:'Acquisition intracom.',cc:'Travaux cocontractant',v:'Vente',m:'Achat de marchandises',s:'Services et biens divers',i:'Investissement'};
-const DT={clo:{l:'Écritures de clôture',dl:30},isoc:{l:'Déclaration ISoc',dl:40},paie:{l:'Paie',dl:6},cons:{l:'Conseil fiscal',dl:20},mis:{l:'Mission',dl:30},rep:{l:'Reprise du dossier',dl:10},enc:{l:'Encodage',dl:15},tva:{l:'Déclaration TVA',dl:15},bil:{l:'Bilan annuel',dl:60},ipp:{l:'Déclaration IPP',dl:40}};
+const DT={cab:{l:'Comptes annuels du cabinet',dl:60},clo:{l:'Écritures de clôture',dl:30},isoc:{l:'Déclaration ISoc',dl:40},paie:{l:'Paie',dl:6},cons:{l:'Conseil fiscal',dl:20},mis:{l:'Mission',dl:30},rep:{l:'Reprise du dossier',dl:10},enc:{l:'Encodage',dl:15},tva:{l:'Déclaration TVA',dl:15},bil:{l:'Bilan annuel',dl:60},ipp:{l:'Déclaration IPP',dl:40}};
 const ACC={'604':'Achats de marchandises','2400':'Mobilier et matériel (investissement)','6100':'Loyers et charges locatives','6110':'Entretien et réparations','6120':'Énergie (électricité, gaz)','6121':'Eau','6124':'Fournitures de bureau','6125':'Téléphone et internet','6131':'Honoraires','6140':'Assurances','6151':'Publicité et annonces','6152':'Publications légales','6170':'Frais de véhicule et carburant','6180':'Restaurant et réception','6190':'Documentation','6402':"Droits d'enregistrement",'6570':'Frais bancaires','7000':"Chiffre d'affaires"};
 const PIECES=[
  {f:'Proximus',d:'Abonnement internet + téléphonie fixe',a:'6125',r:21,m:[45,95]},
@@ -413,7 +451,7 @@ function addDossier(cl,type){
  else if(type==='isoc'||type==='clo')h=1+cl.diff;
  else h=3;
  const prevPer=perKey(Math.max(0,S.day-1));
- S.dossiers.push({id:uid(),cid:cl.id,type,lab,h,done:0,n,per:perKey(S.day),diff:cl.diff,dl:S.day+DT[type].dl,who:null,late:false,errs:0,piece:null,q:type==='tva'?{per:prevPer,lines:null}:type==='bil'?{bal:genBilan(cl)}:(type==='ipp'||type==='isoc')?genTax(cl,type):type==='clo'?genClo(cl):null});
+ S.dossiers.push({id:uid(),cid:cl.id,type,lab,h,done:0,n,per:perKey(S.day),diff:cl.diff,dl:S.day+DT[type].dl,who:null,late:false,errs:0,piece:null,q:type==='tva'?{per:prevPer,lines:null}:type==='bil'?{bal:genBilan(cl)}:(type==='ipp'||type==='isoc')?genTax(cl,type):type==='clo'?genClo(cl):type==='paie'?genPaie():null});
 }
 function candidate(){
  const lv=Math.random()<.5?1:(Math.random()<.65?2:3);const r=ROLE[lv];
@@ -431,7 +469,7 @@ function prospect(){
  return {id:c.id,c,exp:S.day+5};
 }
 function newGame(){
- S={v:4,career:null,rdv:[],eq:{scan:0,ocr:0,ecran:0,srv:0},svc:{paie:false,cons:false},offs:[{n:'Siège'}],logSeq:0,noSum:false,st:{pc:0,streak:0,best:0,tvaOk:0,bilOk:0,mis:0,pos:0,taxOk:0},tro:[],qInv:0,day:0,cash:5000,rep:0,pal:1,myH:8,clients:[],dossiers:[],staff:[],cands:[],prospects:[],log:[],months:[],nid:1,tvaDue:0,tvaDed:0,qNet:0,qFees:0,qMis:0,qSoft:0,mMis:0,quarters:[],me:{perso:2000,sal:0,inv:0,loan:0,flvl:0,owned:[]}};
+ S={v:5,y:{fees:0,chg:0,rem:0,isoc:0},reserves:0,apports:5000,eqTot:0,ag:null,career:null,rdv:[],eq:{scan:0,ocr:0,ecran:0,srv:0},svc:{paie:false,cons:false},offs:[{n:'Siège'}],logSeq:0,noSum:false,st:{pc:0,streak:0,best:0,tvaOk:0,bilOk:0,mis:0,pos:0,taxOk:0},tro:[],qInv:0,day:0,cash:5000,rep:0,pal:1,myH:8,clients:[],dossiers:[],staff:[],cands:[],prospects:[],log:[],months:[],nid:1,tvaDue:0,tvaDed:0,qNet:0,qFees:0,qMis:0,qSoft:0,mMis:0,quarters:[],me:{perso:2000,sal:0,inv:0,loan:0,flvl:0,owned:[],ex:{ec:false,cf:false,next:{}}}};
  for(let i=0;i<5;i++)S.cands.push(candidate());
  S.prospects.push(prospect());S.prospects.push(prospect());
  log('Vous ouvrez votre fiduciaire à domicile, sans aucun client pour l\'instant.');
@@ -439,11 +477,12 @@ function newGame(){
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 function load(){try{const s=localStorage.getItem(KEY);if(s){S=JSON.parse(s);migrate();return true}}catch(e){}return false}
 function migrate(){
- const def={tvaDue:0,tvaDed:0,qNet:0,qFees:0,qMis:0,qSoft:0,mMis:0,quarters:[],me:{perso:2000,sal:0,inv:0,loan:0,flvl:0,owned:[]}};for(const k in def)if(S[k]===undefined)S[k]=def[k];
+ const def={tvaDue:0,tvaDed:0,qNet:0,qFees:0,qMis:0,qSoft:0,mMis:0,quarters:[],me:{perso:2000,sal:0,inv:0,loan:0,flvl:0,owned:[],ex:{ec:false,cf:false,next:{}}}};for(const k in def)if(S[k]===undefined)S[k]=def[k];
  for(const s of S.staff.concat(S.cands)){if(!s.wk)s.wk=['J','J','J','J','J'];if(s.cg===undefined)s.cg=20}
  for(const d of S.dossiers){if(d.type==='tva'&&!d.q)d.q={lines:tvaLines(client(d.cid)||{diff:1})};if(d.type==='bil'&&!(d.q&&d.q.bal))d.q={bal:genBilan(client(d.cid)||{diff:1})};if((d.type==='ipp'||d.type==='isoc')&&!(d.q&&d.q.items))d.q=genTax(client(d.cid)||{diff:1},d.type)}
  if(S.st&&S.st.taxOk===undefined)S.st.taxOk=0;
- if(!S.rdv)S.rdv=[];if(S.career===undefined)S.career=null;
+ if(!S.rdv)S.rdv=[];if(!S.y)S.y={fees:0,chg:0,rem:0,isoc:0};if(S.reserves===undefined)S.reserves=0;if(S.apports===undefined)S.apports=5000;if(S.eqTot===undefined)S.eqTot=0;if(S.ag===undefined)S.ag=null;if(!S.me.ex)S.me.ex={ec:false,cf:false,next:{}};
+ for(const d of S.dossiers)if(d.type==='paie'&&!(d.q&&d.q.items))d.q=genPaie();if(S.career===undefined)S.career=null;
  if(!S.offs)S.offs=[{n:'Siège'}];if(S.logSeq===undefined)S.logSeq=0;
  for(const d of S.dossiers)if(d.type==='clo'&&!(d.q&&d.q.items))d.q=genClo(client(d.cid)||{diff:1});
  if(!S.eq)S.eq={scan:0,ocr:0,ecran:0,srv:0};if(!S.svc)S.svc={paie:false,cons:false};if(!S.st)S.st={pc:0,streak:0,best:0,tvaOk:0,bilOk:0,mis:0,pos:0};if(!S.tro)S.tro=[];if(S.qInv===undefined)S.qInv=0;
@@ -494,7 +533,8 @@ function complete(d,lvl,manual){
  if(d.own){const g=expected(d.q.lines),net=r2(g['71']-g['72']);S.cash-=net;
   log(net>=0?`TVA du bureau versée au SPF Finances : ${eur2(net)}.`:`TVA du bureau récupérée : ${eur2(-net)}.`);
   if(err){S.cash-=50;log('Erreur dans la déclaration TVA du bureau : amende de 50 €.')}return}
- if(d.type==='mis'){const fee=err?Math.round(d.fee*.7):d.fee;S.cash+=fee*1.21;S.tvaDue+=fee*.21;S.mMis+=fee;S.qMis+=fee;if(!err)S.st.mis++;S.rep=clamp(S.rep+(err?-2:1),0,100);
+ if(d.type==='cab'){S.reserves+=d.q.res;S.ag={year:d.q.year,res:d.q.res};log(`Comptes annuels ${d.q.year} déposés : résultat ${eur(d.q.res)}.`);return}
+ if(d.type==='mis'){const fee=Math.round((err?d.fee*.7:d.fee)*(S.me.ex&&S.me.ex.cf?1.2:1));S.cash+=fee*1.21;S.tvaDue+=fee*.21;S.mMis+=fee;S.qMis+=fee;if(!err)S.st.mis++;S.rep=clamp(S.rep+(err?-2:1),0,100);
   log(err?`Mission « ${d.lab} » livrée avec des erreurs : geste commercial, ${eur(fee)} HTVA facturés.`:`Mission « ${d.lab} » terminée : ${eur(fee)} HTVA facturés.`);return}
  const c=client(d.cid);if(!c)return;
  if(manual){
@@ -509,6 +549,7 @@ function monthEnd(day){
   loyer=PAL[S.pal].loyer+ANT.loyer*(S.offs.length-1),soft=45*(S.staff.length+1),struct=150*S.pal*S.pal;
  const dir=S.me.sal,mis=S.mMis,net=fees+mis-sal-onss-loyer-soft-struct-dir;
  S.cash+=net-mis+fees*.21-(soft+struct)*.21;S.tvaDue+=fees*.21;S.tvaDed+=(soft+struct)*.21;
+ S.y.fees+=fees+mis;S.y.rem+=sal+onss+dir;S.y.chg+=loyer+soft+struct;
  S.qNet+=net;if(net>0)S.st.pos++;else S.st.pos=0;S.qFees+=fees;S.qSoft+=soft+struct;S.mMis=0;
  S.months.unshift({m:monthName(day),fees:fees+mis,sal,onss,loyer,soft,struct,dir,net,cash:Math.round(S.cash),cli:S.clients.length});S.months=S.months.slice(0,24);
  if(dir){S.me.perso+=Math.round(dir*.6);log(`Votre rémunération de dirigeant : ${eur(dir)} brut, ${eur(dir*.6)} net sur votre compte.`)}
@@ -519,9 +560,18 @@ function monthEnd(day){
  log(`Clôture de ${monthName(day)} : résultat ${eur(net)}.`);
  for(const c of [...S.clients])if(c.sat<25){S.clients=S.clients.filter(x=>x!==c);S.dossiers=S.dossiers.filter(d=>d.cid!==c.id);S.rep=clamp(S.rep-3,0,100);log(`${c.name}, mécontent, quitte la fiduciaire.`)}
 }
+function cabClose(yr){
+ const y=S.y,res=Math.round(y.fees-y.rem-y.chg-y.isoc),cash=Math.round(S.cash);let cli=Math.round(S.clients.reduce((a,c)=>a+feeOf(c),0)*1.21);
+ const eq=Math.round(S.eqTot),cp=S.apports+Math.round(S.reserves)+res;let dettes=eq+cli+Math.max(cash,0)-(cp+Math.max(-cash,0));if(dettes<0){cli-=dettes;dettes=0}
+ const L=[['2400','Équipement du bureau',eq],['4000','Clients — honoraires à encaisser',cli],['5500','Banque',Math.max(cash,0)],['1000','Apports des associés',S.apports],
+  ['1400',S.reserves>=0?'Bénéfice reporté':'Perte reportée',Math.round(S.reserves)],['4300','Découvert bancaire',Math.max(-cash,0)],['4400','Fournisseurs et dettes diverses',dettes],
+  ['6100','Services et biens divers',Math.round(y.chg)],['6200','Rémunérations et charges sociales',Math.round(y.rem)],['6700','Impôt des sociétés',Math.round(y.isoc)],['7000',"Chiffre d'affaires",Math.round(y.fees)]].filter(l=>l[2]);
+ S.dossiers.push({id:uid(),cid:null,cname:'Votre bureau',cab:true,type:'cab',lab:`Comptes annuels du cabinet — ${yr}`,h:1,done:0,n:0,diff:1,dl:S.day+60,who:'me',late:false,errs:0,piece:null,q:{year:yr,res,items:L.map(l=>({lab:`${l[0]} ${l[1]}`,amt:l[2],cat:bcat(l[0])}))}});
+ S.y={fees:0,chg:0,rem:0,isoc:0};log(`Clôture de l'exercice ${yr} : les comptes annuels du cabinet sont à établir.`);
+}
 function quarterEnd(day){
  const d=dateOf(day),lab=`T${Math.floor(d.getMonth()/3)+1} ${d.getFullYear()}`,b=S.qNet;
- const isoc=b>0?Math.round(.2*Math.min(b,25000)+.25*Math.max(0,b-25000)):0;
+ const isoc=b>0?Math.round(.2*Math.min(b,25000)+.25*Math.max(0,b-25000)):0;S.y.isoc+=isoc;
  S.cash-=isoc;S.quarters.unshift({q:lab,res:b,isoc});S.quarters=S.quarters.slice(0,12);
  log(`Clôture du ${lab} : résultat ${eur(b)}, impôt des sociétés ${eur(isoc)}.`);
  const lines=[{lab:'Honoraires de tenue de comptabilité',kind:'v',rate:21,amt:r2(S.qFees)}];
@@ -546,6 +596,7 @@ function endDay(){
  if(m0!==m1){
   monthEnd(prev);
   if(m1%3===0)quarterEnd(prev);
+  if(m1===0)cabClose(dateOf(prev).getFullYear());
   if(m1===0)for(const s of S.staff){if(s.cg>0){const pc=Math.round(s.sal/21.67*s.cg);S.cash-=pc;log(`${s.name} n'a pas pris ${s.cg} jour${s.cg>1?'s':''} de congé : ${eur(pc)} payés.`)}s.cg=20}
   for(const c of S.clients){
    addDossier(c,'enc');
@@ -585,7 +636,7 @@ const ACT={
  sub:(v)=>{const [t,k]=v.split(':');sub[t]=k;render();window.scrollTo(0,0)},
  accept:(id)=>{const p=S.prospects.find(x=>x.id==id);if(!p)return;
   if(p.mis){const m=MIS[p.mi];S.prospects=S.prospects.filter(x=>x!==p);
-   S.dossiers.push({id:uid(),cid:null,cname:p.name,type:'mis',lab:`${m.lab} — ${p.name}`,h:m.h,done:0,n:0,diff:m.diff,dl:S.day+30,who:null,late:false,errs:0,piece:null,fee:p.fee});
+   S.dossiers.push({id:uid(),cid:null,cname:p.name,mi:p.mi,type:'mis',lab:`${m.lab} — ${p.name}`,h:m.h,done:0,n:0,diff:m.diff,dl:S.day+30,who:null,late:false,errs:0,piece:null,fee:p.fee});
    log(`Mission acceptée : ${m.t} pour ${p.name} (${eur(p.fee)} HTVA à la livraison).`);save();render();return}
   if(S.clients.length>=maxC()){log('Capacité maximale atteinte pour ce palier.');render();return}
   p.c.since=S.day;S.clients.push(p.c);S.prospects=S.prospects.filter(x=>x!==p);addDossier(p.c,'rep');addDossier(p.c,'enc');
@@ -597,7 +648,7 @@ const ACT={
   if(M?.confirmFire!==s.id){M={confirmFire:s.id};openFire(s);return}
   S.cash-=s.sal;S.staff=S.staff.filter(x=>x!==s);S.dossiers.forEach(d=>{if(d.who===s.id)d.who=null});
   log(`${s.name} quitte l'équipe (indemnité ${eur(s.sal)}).`);closeModal();save();render()},
- upgrade:()=>{const n=PAL[S.pal+1];if(!n||S.cash<n.cost||S.rep<n.rep)return;S.cash-=n.cost;S.pal++;log(`Vous passez au palier « ${n.n} ».`);save();render()},
+ upgrade:()=>{const n=PAL[S.pal+1];if(!n||S.cash<n.cost||S.rep<n.rep||(S.pal+1>=3&&!S.me.ex.ec))return;S.cash-=n.cost;S.pal++;log(`Vous passez au palier « ${n.n} ».`);save();render()},
  work:(id)=>{const d=S.dossiers.find(x=>x.id==id);if(!d||S.myH<=0)return;const use=Math.min(2,S.myH,d.h-d.done);d.done+=use;S.myH-=use;
   if(d.done>=d.h-1e-9)complete(d,3,true);save();render()},
  encode:(id)=>openPiece(+id),
@@ -605,7 +656,7 @@ const ACT={
  bilform:(id)=>openForm(+id),
  sendTva:()=>validateForm(),
  equip:(k)=>{const e=EQ.find(x=>x.k===k);if(!e)return;const l=S.eq[k];if(l>=3)return;const c=e.c[l];if(S.cash<c*1.21)return;
-  S.cash-=c*1.21;S.tvaDed+=c*.21;S.qInv+=c;S.eq[k]++;log(`Achat : ${e.n} niveau ${S.eq[k]} (${eur(c)} HTVA).`);save();render()},
+  S.cash-=c*1.21;S.tvaDed+=c*.21;S.qInv+=c;S.eqTot+=c;S.eq[k]++;log(`Achat : ${e.n} niveau ${S.eq[k]} (${eur(c)} HTVA).`);save();render()},
  unlock:(k)=>{const v=SVC[k];if(S.svc[k]||S.cash<v.unlock||S.rep<v.rep)return;S.cash-=v.unlock;S.svc[k]=true;log(`Nouveau service disponible : ${v.n}.`);save();render()},
  offer:(v)=>{const [id,k]=v.split(':'),c=client(+id);if(!c||!S.svc[k]||c.svc[k])return;
   if(c.offered&&c.offered[k]&&S.day-c.offered[k]<20)return;
@@ -636,7 +687,7 @@ const ACT={
  invest:(v)=>{const x=+v;if(x>0){if(S.me.perso<x)return;S.me.perso-=x;S.me.inv+=x}else{S.me.perso+=S.me.inv;log(`Vous revendez votre portefeuille : ${eur(S.me.inv)}.`);S.me.inv=0}save();render()},
  lend:()=>{if(S.me.perso<5000)return;S.me.perso-=5000;S.me.loan+=5000;S.cash+=5000;log('Vous prêtez 5 000 € au bureau (compte courant).');save();render()},
  repay:()=>{const x=Math.min(S.me.loan,5000);if(!x||S.cash<x)return;S.cash-=x;S.me.loan-=x;S.me.perso+=x;log(`Le bureau vous rembourse ${eur(x)}.`);save();render()},
- apport:()=>{if(S.me.perso<5000)return;S.me.perso-=5000;S.cash+=5000;log('Vous faites un apport de 5 000 € au bureau.');save();render()},
+ apport:()=>{if(S.me.perso<5000)return;S.me.perso-=5000;S.cash+=5000;S.apports+=5000;log('Vous faites un apport de 5 000 € au bureau.');save();render()},
  dtrain:()=>{const c=1500*(S.me.flvl+1);if(S.me.flvl>=5||S.me.perso<c)return;S.me.perso-=c;S.me.flvl++;S.myH+=.5;log(`Vous terminez une formation de dirigeant (niveau ${S.me.flvl}) : +0,5 h par jour.`);save();render()},
  buy:(i)=>{const it=ITEMS[+i];if(!it||S.me.owned.includes(+i)||S.me.perso<it.p)return;S.me.perso-=it.p;S.me.owned.push(+i);log(`Achat personnel : ${it.n}.`);save();render()},
  shift:(v)=>{const [sid,i]=v.split(':').map(Number),s=staffBy(sid);if(!s)return;const o=['J','M','A','C'];s.wk[i]=o[(o.indexOf(s.wk[i])+1)%4];save();render()},
@@ -652,10 +703,20 @@ const ACT={
   delete P[M.fix.k];const nk=a+'|'+pi,t=P[nk]=P[nk]||{n:0,amt:0};t.n+=e.n;t.amt=r2(t.amt+e.amt);
   const ok=a===PIECES[+pi].a;M.res={msg:ok?`Corrigé : ${e.n} pièce${e.n>1?'s':''} passée${e.n>1?'s':''} en ${a}.`:`${a} n'est pas le bon compte non plus.`,ok};M.fix=null;
   for(const d of S.dossiers)if(d.type==='tva'&&d.cid===c.id&&d.q&&d.q.per===M.per&&d.q.fromGl)d.q.lines=null;save();renderGl();renderTop()},
- rdv:(id)=>{const r=S.rdv.find(x=>x.id==id);if(!r)return;if(S.myH<.5){log("Il vous faut 30 minutes libres pour recevoir un client.");render();return}M={rdv:r,ans:null};renderRdv();document.getElementById('modal').hidden=false},
+ rdv:(id)=>{const r=S.rdv.find(x=>x.id==id);if(!r)return;if(S.myH<.5){log("Il vous faut 30 minutes libres pour recevoir un client.");render();return}M={rdv:r,ans:null,perm:[0,1,2,3].sort(()=>Math.random()-.5)};renderRdv();document.getElementById('modal').hidden=false},
  rdvans:(i)=>{const r=M.rdv;if(!r||M.ans!==null)return;M.ans=+i;const q=QS[r.qi],c=client(r.cid);S.rdv=S.rdv.filter(x=>x!==r);S.myH-=.5;
-  const ok=M.ans===q[2];if(c){if(ok){const fee=Math.round((40+50*c.diff)/5)*5;c.sat=clamp(c.sat+8,0,100);S.rep=clamp(S.rep+.5,0,100);S.cash+=fee*1.21;S.tvaDue+=fee*.21;S.mMis+=fee;S.qMis+=fee;M.fee=fee;S.st.rdvOk=(S.st.rdvOk||0)+1;log(`Conseil donné à ${c.name} : ${eur(fee)} HTVA facturés.`)}
+  const ok=M.ans===q[2];if(c){if(ok){const fee=Math.round((40+50*c.diff)*(S.me.ex&&S.me.ex.cf?2:1)/5)*5;c.sat=clamp(c.sat+8,0,100);S.rep=clamp(S.rep+.5,0,100);S.cash+=fee*1.21;S.tvaDue+=fee*.21;S.mMis+=fee;S.qMis+=fee;M.fee=fee;S.st.rdvOk=(S.st.rdvOk||0)+1;log(`Conseil donné à ${c.name} : ${eur(fee)} HTVA facturés.`)}
   else{c.sat=clamp(c.sat-6,0,100);log(`Mauvais conseil donné à ${c.name}.`)}}save();renderRdv();renderTop()},
+ cforme:(f)=>{if(!M||M.res)return;M.forme=f;renderForm()},
+ cstep:(i)=>{if(!M||M.res)return;if(!M.order.includes(+i))M.order.push(+i);renderForm()},
+ creset:()=>{if(!M||M.res)return;M.order=[];renderForm()},
+ agdiv:(f)=>{const a=S.ag;if(!a)return;const dist=Math.max(0,Math.min(Math.round(S.reserves),Math.round(S.cash))),g=Math.round(dist*+f),net=Math.round(g*.7);
+  S.cash-=g;S.reserves-=g;S.me.perso+=net;S.ag=null;log(g?`Assemblée générale : dividende de ${eur(g)} brut, ${eur(net)} net versés sur votre compte (précompte ${eur(g-net)}).`:'Assemblée générale : le résultat est mis en réserve.');save();if(M&&M.d)renderForm();else render()},
+ exam:(k)=>{const ex=S.me.ex;if(ex[k]||(k==='cf'&&!ex.ec)||S.myH<4||S.cash<750||(ex.next[k]&&S.day<ex.next[k]))return;S.cash-=750;S.myH-=4;
+  const qs=EXQ[k].map((x,i)=>i).sort(()=>Math.random()-.5).slice(0,8);M={exam:{k,qs,i:0,ans:[],perms:qs.map(()=>[0,1,2,3].sort(()=>Math.random()-.5))}};renderExam();document.getElementById('modal').hidden=false},
+ exans:(j)=>{const E=M&&M.exam;if(!E||E.i>=E.qs.length)return;E.ans.push(+j);E.i++;
+  if(E.i>=E.qs.length){const sc=E.ans.filter(a=>a===0).length,ex=S.me.ex;if(sc>=6){ex[E.k]=true;if(E.k==='ec')S.rep=clamp(S.rep+5,0,100);log(`Examen réussi (${sc}/8) : vous êtes ${EXN[E.k][0].toLowerCase()}.`)}else{ex.next[E.k]=S.day+20;log(`Examen échoué (${sc}/8).`)}save()}
+  renderExam();renderTop()},
  career:()=>{if(!S.career){S.career={ch:0,start:S.day,stars:[]};log('Mode carrière activé.');save();render()}},
  newgame:(v)=>{newGame();if(v==='car')S.career={ch:0,start:0,stars:[]};closeModal();save();tab='accueil';render()},
  endok:()=>{if(S.career)S.career.showEnd=false;save();closeModal()},
@@ -723,6 +784,10 @@ function validatePiece(){
 }
 function formSpec(d){
  if(d.type==='clo')return {title:'Écritures de clôture',cost:1};
+ if(d.type==='cab')return {title:'Comptes annuels du cabinet',cost:1};
+ if(d.type==='paie')return {title:'Fiche de paie',cost:.5};
+ if(d.type==='mis')return {title:'Création de société',cost:2};
+ if(d.type==='bil')return {title:'Bilan annuel',cost:2};
  if(d.type==='ipp'||d.type==='isoc')return {title:d.type==='ipp'?'Déclaration IPP':'Déclaration ISoc',cost:1};
  if(d.type==='bil'){const B=d.q.bal;return {title:'Bilan annuel',sub:'balance de clôture de l\'exercice',cost:2,fields:BFIELDS,exp:B.exp,
   table:`<tr><th>Compte</th><th>Libellé</th><th class="n">Débit</th><th class="n">Crédit</th></tr>${B.L.map(l=>`<tr><td class="mono">${l[0]}</td><td>${esc(l[1])}</td><td class="n">${l[3]==='D'?eur(l[2]):''}</td><td class="n">${l[3]==='C'?eur(l[2]):''}</td></tr>`).join('')}`}}
@@ -754,6 +819,54 @@ function renderTvaForm(){
  else{const bad=L.filter((l,i)=>cls[i]!==lineGrid(l)).length;h=h.replace('<h3>Déclaration calculée</h3>',`<div class="verdict ${bad||mis?'p-red':'p-ok'}">${bad?`${bad} ligne${bad>1?'s':''} mal classée${bad>1?'s':''}.`:mis?'Classement correct.':'Déclaration correcte.'}${mis?` ${mis} pièce${mis>1?'s':''} mal imputée${mis>1?'s':''} à l'encodage fausse${mis>1?'nt':''} la déclaration.`:''}</div><h3>Déclaration déposée</h3>`)+'<button data-act="close">Fermer</button>'}
  document.getElementById('sheet').innerHTML=h;
 }
+function clsSummary(d,cls){
+ const sum=k=>d.q.items.reduce((a,it,i)=>a+(cls[i]===k?it.amt:0),0);
+ if(d.type==='paie'){const op=sum('op'),pp0=sum('p'),x=sum('x'),onss=op*.1307,pp=Math.max(0,(op+pp0-onss)*.22);
+  return [['Rémunération soumise à l\'ONSS',op],['Cotisations ONSS du travailleur (13,07 %)',-onss],['Précompte professionnel (estimé)',-pp],['Avantages en nature (non versés)',pp0],['Éléments exonérés',x],['Net à payer',op-onss-pp+x]]}
+ const A=sum('A')+sum('St')+sum('Cr')+sum('Li'),res=sum('Pr')-sum('Ch'),P=sum('CP')+sum('De')+res;
+ return [['Total de l\'actif',A],['Capitaux propres',sum('CP')],['Dettes',sum('De')],["Résultat de l'exercice",res],['Total du passif (résultat compris)',P]];
+}
+function renderCls(){
+ const d=M.d,cls=M.cls,done=!!M.res,all=cls.every(Boolean),paie=d.type==='paie',opts=paie?POPTS:BOPTS,lab=Object.fromEntries(opts),rows=clsSummary(d,cls);
+ let h=`<div class="rowx"><h2>${M.sp.title}</h2><button data-act="close">Fermer</button></div>
+ <div class="sub">${esc(dname(d))}${paie?` · ${esc(d.q.emp)} · touchez le traitement de chaque élément`:' · touchez la rubrique de chaque compte, l\'appli fait les totaux'}</div><div class="card">`;
+ d.q.items.forEach((it,i)=>{h+=`<div class="ln"><div class="rowx"><span>${esc(it.lab)}</span><span class="mono">${paie?eur2(it.amt):eur(it.amt)}</span></div>
+  <div class="gb ${paie?'':'four'}">${opts.map(([k,l])=>`<button class="${cls[i]===k?'sel':''} ${done&&cls[i]===k&&k!==it.cat?'bad':''}" ${done?'disabled':''} data-act="xcls" data-v="${i}:${k}">${l}</button>`).join('')}</div>
+  ${done&&cls[i]!==it.cat?`<div class="sub p-red">Il fallait : ${lab[it.cat]}.</div>`:''}</div>`});
+ const bal=!paie&&all?Math.abs(rows[0][1]-rows[4][1])<1:null;
+ h+=`</div><h3>${paie?'Fiche calculée':'Bilan calculé'}</h3><div class="card scroll"><table>${rows.map(([l,v])=>`<tr><td>${l}</td><td class="n">${paie?eur2(v):eur(v)}</td></tr>`).join('')}</table>${bal===null?'':`<div class="sub ${bal?'p-ok':'p-amber'}">${bal?'Actif et passif sont équilibrés.':"Actif et passif ne sont pas égaux : une rubrique est sans doute fausse."}</div>`}</div>`;
+ if(!done)h+=`<button class="pri" data-act="sendTva" ${all?'':'disabled'}>${all?`Valider (${String(M.sp.cost).replace('.',',')} h)`:`Encore ${cls.filter(x=>!x).length} ligne(s) à classer`}</button>`;
+ else{const bad=d.q.items.filter((it,i)=>cls[i]!==it.cat).length;h+=`<div class="verdict ${bad?'p-red':'p-ok'}">${bad?`${bad} ligne${bad>1?'s':''} mal classée${bad>1?'s':''}.`:'Tout est correct.'}</div>`;
+  if(d.type==='cab')h+=agBlock();h+='<button data-act="close">Fermer</button>'}
+ document.getElementById('sheet').innerHTML=h;
+}
+function agBlock(){const a=S.ag;if(!a)return '';const dist=Math.max(0,Math.min(Math.round(S.reserves),Math.round(S.cash)));
+ return `<h3>Assemblée générale ${a.year}</h3><div class="card"><div class="rowx"><span>Résultat de l'exercice</span><b class="mono">${eur(a.res)}</b></div><div class="rowx"><span>Bénéfice distribuable (limité à la trésorerie)</span><b class="mono">${eur(dist)}</b></div>
+ <div class="sub">Une SRL ne peut distribuer que si elle reste solvable et peut payer ses dettes. Précompte mobilier de 30 % retenu sur le dividende.</div>
+ ${dist>0?`<div class="price">${[0,.25,.5,1].map(f=>`<button data-act="agdiv" data-v="${f}">${f?`${f*100} %<br><small>${eur(dist*f*.7)} net</small>`:'Tout en réserve'}</button>`).join('')}</div>`:`<button data-act="agdiv" data-v="0">Reporter le résultat</button>`}</div>`}
+function renderCrea(){
+ const d=M.d,done=!!M.res;let h=`<div class="rowx"><h2>Création de société</h2><button data-act="close">Fermer</button></div><div class="sub">${esc(dname(d))}</div>
+ <div class="card"><span class="name">« Nous sommes deux, nous lançons une activité de conseil avec 5 000 € d'apport. Quelle forme choisir ? »</span>
+ <div class="opts">${CREAF.map(([f])=>`<button class="${M.forme===f?'sel':''} ${done&&M.forme===f&&f!=='SRL'?'bad':''}" ${done?'disabled':''} data-act="cforme" data-v="${f}">${f}</button>`).join('')}</div>
+ ${done?`<div class="sub ${M.forme==='SRL'?'p-ok':'p-red'}">${M.forme==='SRL'?'Bon choix : ':'Il fallait la SRL. '}${esc(CREAF.find(x=>x[0]===M.forme)[1])}</div>`:''}</div>
+ <h3>Étapes, dans l'ordre</h3><div class="sub">Touchez les étapes dans l'ordre où elles se font.</div><div class="card"><div class="steps">`;
+ if(!done){const rest=CREA.map((t,i)=>i).filter(i=>!M.order.includes(i));M.shuf=M.shuf||CREA.map((t,i)=>i).sort(()=>Math.random()-.5);
+  h+=M.order.map((i,n)=>`<button class="on" disabled>${n+1}. ${esc(CREA[i])}</button>`).join('')+M.shuf.filter(i=>rest.includes(i)).map(i=>`<button data-act="cstep" data-v="${i}">${esc(CREA[i])}</button>`).join('');
+  h+=`</div>${M.order.length?'<button data-act="creset">Recommencer l\'ordre</button>':''}</div><button class="pri" data-act="sendTva" ${M.forme&&M.order.length===CREA.length?'':'disabled'}>Monter le dossier (2 h)</button>`}
+ else{h+=M.order.map((i,n)=>`<button class="${i===n?'sel':'bad'}" disabled>${n+1}. ${esc(CREA[i])}</button>`).join('')+`</div><div class="sub">Ordre correct :<br>${CREA.map((t,i)=>`${i+1}. ${esc(t)}`).join('<br>')}</div></div>
+  <div class="verdict ${M.res.bad?'p-red':'p-ok'}">${M.res.bad?`${M.res.bad} erreur${M.res.bad>1?'s':''}.`:'Dossier parfait.'}</div><button data-act="close">Fermer</button>`}
+ document.getElementById('sheet').innerHTML=h;
+}
+function renderExam(){
+ const E=M.exam,Q=EXQ[E.k],done=E.i>=E.qs.length;let h=`<div class="rowx"><h2>Examen — ${EXN[E.k][0]}</h2>${done?'<button data-act="close">Fermer</button>':''}</div>`;
+ if(!done){const q=Q[E.qs[E.i]],perm=E.perms[E.i];
+  h+=`<div class="sub">Question ${E.i+1} / ${E.qs.length} · réussite à partir de 6 bonnes réponses</div><div class="card"><span class="name">${esc(q[0])}</span></div>
+  <div class="opts one">${perm.map(j=>`<button data-act="exans" data-v="${j}">${esc(q[1][j])}</button>`).join('')}</div>`}
+ else{const sc=E.ans.filter(a=>a===0).length,ok=sc>=6;
+  h+=`<div class="verdict ${ok?'p-ok':'p-red'}">${sc} / ${E.qs.length} — ${ok?`Réussi : vous êtes ${EXN[E.k][0].toLowerCase()}.`:'Échoué. Nouvel essai possible dans 20 jours.'}</div>
+  <div class="card">${E.qs.map((qi,n)=>{const q=Q[qi];return `<div class="ln"><span>${esc(q[0])}</span><div class="sub ${E.ans[n]===0?'p-ok':'p-red'}">${E.ans[n]===0?'Juste':`Réponse : ${esc(q[1][0])}`} — ${esc(q[2])}</div></div>`}).join('')}</div><button data-act="close">Fermer</button>`}
+ document.getElementById('sheet').innerHTML=h;
+}
 function renderCloForm(){
  const d=M.d,q=d.q,cls=M.cls,done=!!M.res,all=cls.every(Boolean);
  let h=`<div class="rowx"><h2>Écritures de clôture</h2><button data-act="close">Fermer</button></div>
@@ -779,14 +892,19 @@ function renderTaxForm(){
  document.getElementById('sheet').innerHTML=h;
 }
 function openForm(id){
- const d=S.dossiers.find(x=>x.id===id);if(!d)return;if(d.type==='tva'&&!d.own)ensureTva(d);const sp=formSpec(d);
+ const d=S.dossiers.find(x=>x.id===id);if(!d)return;if(d.type==='tva'&&!d.own)ensureTva(d);
+ if(d.type==='bil'&&!d.q.items)d.q.items=d.q.bal.L.map(l=>({lab:`${l[0]} ${l[1]}`,amt:l[2],cat:bcat(l[0])}));
+ if(d.type==='paie'&&!(d.q&&d.q.items))d.q=genPaie();
+ const sp=formSpec(d);
  if(S.myH<sp.cost){log(`Il vous faut au moins ${sp.cost} h libres.`);render();return}
- M={tva:id,res:null,d,sp,cls:d.type==='tva'?d.q.lines.map(()=>null):d.q&&d.q.items?d.q.items.map(()=>null):null};renderForm();document.getElementById('modal').hidden=false;
+ M={tva:id,res:null,d,sp,order:[],forme:null,cls:d.type==='tva'?d.q.lines.map(()=>null):d.q&&d.q.items?d.q.items.map(()=>null):null};renderForm();document.getElementById('modal').hidden=false;
 }
 function renderForm(){
  if(M.d.type==='tva')return renderTvaForm();
  if(M.d.type==='ipp'||M.d.type==='isoc')return renderTaxForm();
  if(M.d.type==='clo')return renderCloForm();
+ if(['bil','cab','paie'].includes(M.d.type))return renderCls();
+ if(M.d.type==='mis')return renderCrea();
  const d=M.d,sp=M.sp,g=sp.exp,bil=d.type==='bil';
  let h=`<div class="rowx"><h2>${sp.title}</h2><button data-act="close">Fermer</button></div>
  <div class="sub">${esc(dname(d))} · ${sp.sub}</div><div class="card scroll"><table>${sp.table}</table></div>`;
@@ -805,7 +923,9 @@ function renderForm(){
 }
 function validateForm(){
  const d=M.d,sp=M.sp;if(!S.dossiers.includes(d))return;
- if(d.type==='ipp'||d.type==='isoc'||d.type==='clo'){if(!M.cls.every(Boolean))return;const bad=d.q.items.filter((it,i)=>M.cls[i]!==it.cat).length;if(!bad&&d.type!=='clo')S.st.taxOk++;if(!bad&&d.type==='clo')S.st.bilOk++;
+ if(d.type==='mis'){if(!M.forme||M.order.length<CREA.length)return;const bad=(M.forme==='SRL'?0:1)+M.order.filter((x,i)=>x!==i).length;
+  d.errs=Math.min(3,bad);d.done=d.h;S.myH-=sp.cost;M.res={bad};complete(d,3,true);save();renderForm();renderTop();return}
+ if(['ipp','isoc','clo','bil','cab','paie'].includes(d.type)){if(!M.cls.every(Boolean))return;const bad=d.q.items.filter((it,i)=>M.cls[i]!==it.cat).length;if(!bad&&(d.type==='ipp'||d.type==='isoc'))S.st.taxOk++;if(!bad&&(d.type==='clo'||d.type==='bil'))S.st.bilOk++;
   d.errs=Math.min(3,bad);d.done=d.h;S.myH-=sp.cost;M.res={};complete(d,3,true);save();renderForm();renderTop();return}
  if(d.type==='tva'){if(!M.cls.every(Boolean))return;const bad=d.q.lines.filter((l,i)=>M.cls[i]!==lineGrid(l)).length;const mis=d.q.lines.reduce((a,l)=>a+(l.mis||0),0);if(!bad&&!mis)S.st.tvaOk++;
   d.errs=Math.min(3,bad+mis);d.done=d.h;S.myH-=sp.cost;M.res={};complete(d,3,true);save();renderForm();renderTop();return}
@@ -849,7 +969,7 @@ function renderRdv(){
  const r=M.rdv,q=QS[r.qi],c=client(r.cid),done=M.ans!==null;
  let h=`<div class="rowx"><h2>Rendez-vous</h2><button data-act="close">Fermer</button></div><div class="sub">${esc(c?c.name:'')} · ${c?c.forme:''} · 30 minutes</div>
  <div class="card"><span class="name">« ${esc(q[0])} »</span></div><h3>Votre réponse</h3>
- <div class="opts one">${q[1].map((o,i)=>`<button class="${done&&i===q[2]?'sel':''} ${done&&i===M.ans&&i!==q[2]?'bad':''}" ${done?'disabled':''} data-act="rdvans" data-v="${i}">${esc(o)}</button>`).join('')}</div>`;
+ <div class="opts one">${(M.perm||[0,1,2,3]).map(i=>[q[1][i],i]).map(([o,i])=>`<button class="${done&&i===q[2]?'sel':''} ${done&&i===M.ans&&i!==q[2]?'bad':''}" ${done?'disabled':''} data-act="rdvans" data-v="${i}">${esc(o)}</button>`).join('')}</div>`;
  if(done){const ok=M.ans===q[2];h+=`<div class="verdict ${ok?'p-ok':'p-red'}">${ok?`Bonne réponse. Conseil facturé ${eur(M.fee||0)} HTVA.`:'Mauvaise réponse. Le client est déçu.'}</div><div class="sub">${esc(q[3])}</div><button data-act="close">Fermer</button>`}
  document.getElementById('sheet').innerHTML=h;
 }
@@ -877,6 +997,8 @@ function dossierCard(d){
  let act='';
  if(d.who==='me')act=d.type==='enc'?`<button class="pri" data-act="encode" data-v="${d.id}" ${S.myH<pcost()?'disabled':''}>Encoder (${leftPieces(d)} pièces)</button>`
   :d.type==='tva'?`<button class="pri" data-act="tvaform" data-v="${d.id}" ${S.myH<1?'disabled':''}>Remplir la déclaration</button>`
+  :['cab','paie'].includes(d.type)?`<button class="pri" data-act="taxform" data-v="${d.id}" ${S.myH<formSpec(d).cost?'disabled':''}>${d.type==='paie'?'Faire la fiche de paie (30 min)':'Établir les comptes (1 h)'}</button>`
+  :d.type==='mis'&&d.mi===0?`<button class="pri" data-act="taxform" data-v="${d.id}" ${S.myH<2?'disabled':''}>Monter le dossier (2 h)</button>`
   :d.type==='clo'?`<button class="pri" data-act="taxform" data-v="${d.id}" ${S.myH<1?'disabled':''}>Passer les écritures (1 h)</button>`
   :(d.type==='ipp'||d.type==='isoc')?`<button class="pri" data-act="taxform" data-v="${d.id}" ${S.myH<1?'disabled':''}>Remplir la déclaration (1 h)</button>`
   :d.type==='bil'?`<button class="pri" data-act="bilform" data-v="${d.id}" ${S.myH<2?'disabled':''}>Monter le bilan (2 h)</button>`
@@ -914,7 +1036,7 @@ function secSvc(){
 function secPal(){
  const nx=PAL[S.pal+1];
  let h=`<div class="sec"><h3>Palier ${S.pal} / 4</h3><div class="card"><div class="rowx"><span class="name">${PAL[S.pal].n}</span><span class="sub">${maxC()} clients · ${maxS()} collaborateur${maxS()>1?'s':''}</span></div>
- ${nx?`<div class="sub">Prochain palier : <b>${nx.n}</b> — ${eur(nx.cost)}, réputation ${nx.rep} minimum. Débloque les clients ${Object.keys(CT).find(k=>CT[k].pal===S.pal+1)}.</div><button class="pri" data-act="upgrade" ${S.cash>=nx.cost&&S.rep>=nx.rep?'':'disabled'}>Passer au palier ${S.pal+1}</button>`:'<div class="sub">Palier maximal atteint.</div>'}</div></div>`;
+ ${nx?`<div class="sub">Prochain palier : <b>${nx.n}</b> — ${eur(nx.cost)}, réputation ${nx.rep} minimum. Débloque les clients ${Object.keys(CT).find(k=>CT[k].pal===S.pal+1)}.</div>${S.pal+1>=3&&!S.me.ex.ec?'<div class="sub p-amber">Exige le titre d\'expert-comptable (Moi → Examens).</div>':''}<button class="pri" data-act="upgrade" ${S.cash>=nx.cost&&S.rep>=nx.rep&&(S.pal+1<3||S.me.ex.ec)?'':'disabled'}>Passer au palier ${S.pal+1}</button>`:'<div class="sub">Palier maximal atteint.</div>'}</div></div>`;
  return h;
 }
 function secTodo(){
@@ -1016,6 +1138,10 @@ function vCharts(){
  ${chart('Nombre de clients',cl.map(m=>m.cli),cl.map(sl),v=>String(Math.round(v)))}</div>`;
 }
 function secMonth(){
+ if(S.ag)return `<div class="sec">${agBlock()}</div>`+secMonth2();
+ return secMonth2();
+}
+function secMonth2(){
  const fees=S.clients.reduce((a,c)=>a+feeOf(c),0),sal=S.staff.reduce((a,s)=>a+s.sal,0),onss=Math.round(sal*.27),loyer=PAL[S.pal].loyer+ANT.loyer*(S.offs.length-1),soft=45*(S.staff.length+1),st=150*S.pal*S.pal,net=fees+S.mMis-sal-onss-loyer-soft-st-S.me.sal;
  const row=(l,v,neg)=>`<tr><td>${l}</td><td class="n ${neg&&v?'p-red':''}">${neg&&v?'− ':''}${eur(v)}</td></tr>`;
  let h=`<div class="sec"><h2>Prévision fin de mois</h2><div class="card scroll"><table>
@@ -1041,9 +1167,13 @@ function secSettings(){
  h+=`<div class="sec"><h3>Réglages</h3><div class="card"><div class="sub">Sauvegarde automatique sur cet appareil.</div>${S.noSum?'<button data-act="sumon">Réafficher le résumé de la journée</button>':''}<button class="dan" data-act="reset">Recommencer une partie</button></div></div>`;
  return h;
 }
+function secExam(){const ex=S.me.ex;
+ return `<div class="sec"><h2>Examens ITAA</h2><div class="sub">8 questions, réussite à 6. Chaque tentative coûte 750 € au cabinet et 4 h de votre journée.</div>${['ec','cf'].map(k=>{const [n,d]=EXN[k],wait=ex.next[k]&&S.day<ex.next[k],lock=k==='cf'&&!ex.ec;
+ return `<div class="card"><div class="rowx"><span class="name">${n}</span>${ex[k]?'<span class="pill p-ok">Obtenu</span>':'<span class="pill p-mut">Pas encore</span>'}</div><div class="sub">${d}</div>
+ ${ex[k]?'':wait?`<div class="sub">Nouvel essai possible le ${fshort(ex.next[k])}.</div>`:lock?'<div class="sub">Obtenez d\'abord le titre d\'expert-comptable.</div>':`<button class="pri" data-act="exam" data-v="${k}" ${S.myH<4||S.cash<750?'disabled':''}>Passer l'examen</button>`}</div>`}).join('')}</div>`}
 function secProfile(){
  const me=S.me,next=1500*(me.flvl+1);
- let h=`<div class="sec"><h2>Mon profil de directeur</h2><div class="card"><div class="rowx"><span>Compte personnel</span><b class="mono">${eur(me.perso)}</b></div>
+ let h=`<div class="sec"><h2>Mon profil de directeur</h2><div class="card">${me.ex&&(me.ex.ec||me.ex.cf)?`<div class="rowx"><span>Titres</span><b>${[me.ex.ec?'Expert-comptable':'',me.ex.cf?'Conseiller fiscal certifié':''].filter(Boolean).join(' · ')}</b></div>`:''}<div class="rowx"><span>Compte personnel</span><b class="mono">${eur(me.perso)}</b></div>
  <div class="rowx"><span>Portefeuille d'actions</span><b class="mono">${eur(me.inv)}</b></div><div class="rowx"><span>Prêt au bureau (compte courant)</span><b class="mono">${eur(me.loan)}</b></div>
  <div class="rowx"><span>Heures par jour</span><b class="mono">${(8+.5*me.flvl+.25*S.eq.ecran).toString().replace('.',',')} h</b></div></div></div>`;
  h+=`<div class="sec"><h3>Ma rémunération</h3><div class="card"><div class="sub">Payée par le bureau en fin de mois. Vous touchez environ 60 % en net après cotisations sociales et précompte.</div>
@@ -1068,7 +1198,7 @@ function secShop(){
  return h;
 }
 const SUBS={clients:[['cli','Clients'],['pros','Prospects']],cabinet:[['equipe','Équipe'],['recrut','Recrutement'],['bureaux','Bureaux'],['equip','Équipement'],['svc','Services']],
- fin:[['mois','Ce mois'],['graph','Graphiques'],['hist','Historique']],moi:[['profil','Profil'],['car','Carrière'],['tro','Trophées'],['shop','Achats'],['regl','Réglages']]};
+ fin:[['mois','Ce mois'],['graph','Graphiques'],['hist','Historique']],moi:[['profil','Profil'],['exam','Examens'],['car','Carrière'],['tro','Trophées'],['shop','Achats'],['regl','Réglages']]};
 let sub={clients:'cli',cabinet:'equipe',fin:'mois',moi:'profil'};
 function segBar(t){const cnt={pros:S.prospects.length};return `<div class="seg" role="tablist">${SUBS[t].map(([k,l])=>`<button role="tab" class="${sub[t]===k?'sel':''}" data-act="sub" data-v="${t}:${k}">${l}${cnt[k]?` (${cnt[k]})`:''}</button>`).join('')}</div>`}
 function secRdv(){if(!S.rdv.length)return '';
@@ -1092,7 +1222,7 @@ function vAccueil(){
 function vClientsTab(){return segBar('clients')+(sub.clients==='pros'?secPros():secClients())}
 function vCabinet(){const k=sub.cabinet;return segBar('cabinet')+(k==='recrut'?secCands():k==='bureaux'?secPal()+secOffs():k==='equip'?secEquip():k==='svc'?secSvc():secTeam())}
 function vFinTab(){const k=sub.fin;return segBar('fin')+(k==='graph'?vCharts():k==='hist'?secHist():secMonth())}
-function vMoiTab(){const k=sub.moi;return segBar('moi')+(k==='car'?secCareer(false):k==='tro'?secTro():k==='shop'?secShop():k==='regl'?secSettings():secProfile())}
+function vMoiTab(){const k=sub.moi;return segBar('moi')+(k==='exam'?secExam():k==='car'?secCareer(false):k==='tro'?secTro():k==='shop'?secShop():k==='regl'?secSettings():secProfile())}
 function render(){
  checkTro();checkCareer();renderTop();
  if(tab==='bureau')tab='accueil';if(tab==='equipe'){tab='cabinet'}
