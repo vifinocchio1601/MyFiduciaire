@@ -80,7 +80,7 @@ td.n,th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabula
 .endday{display:flex;gap:10px;align-items:center;padding:8px 6px 6px}
 .endday .hrs{flex:1;min-width:0;font-size:13px;color:var(--muted)}
 .endday .hrs b{color:var(--ink);font-family:var(--f-mono)}
-.nav{display:grid;grid-template-columns:repeat(6,1fr)}
+.nav{display:grid;grid-template-columns:repeat(5,1fr)}
 .price{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .price button{padding:6px 2px;font-size:12px}
 .price button.sel{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
@@ -114,7 +114,12 @@ td.n,th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabula
 .cal .dots i{width:7px;height:7px;border-radius:50%;background:var(--accent)}
 .cal .dots i.l{background:var(--red)}.cal .dots i.s{background:var(--amber)}
 .cal button.selday .dots i{background:var(--accent-ink)}
-.seg{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.seg{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.seg::-webkit-scrollbar{display:none}
+.seg button{flex:1 0 auto;white-space:nowrap;padding:8px 12px}
+.moi{background:transparent;color:var(--accent-ink);border:1px solid currentColor;border-radius:999px;padding:4px 12px;font-size:13px;opacity:.9}
+.moi.on{background:var(--accent-ink);color:var(--accent);opacity:1}
+.right{display:flex;align-items:center;gap:10px;min-width:0}
 .seg button.sel{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .chart svg{width:100%;height:auto;display:block}
 .chart .ax{fill:var(--muted);font-family:var(--f-mono);font-size:10px}
@@ -151,7 +156,7 @@ td.n,th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabula
 </head><body>
 
 <div class="top">
-  <div class="row1"><div class="brand" id="brandName">MyFiduciaire</div><div class="date" id="topDate"></div></div>
+  <div class="row1"><div class="brand" id="brandName">MyFiduciaire</div><div class="right"><div class="date" id="topDate"></div><button class="moi" id="moiBtn" data-act="tab" data-v="moi">Moi</button></div></div>
   <div class="stats">
     <div class="stat"><b id="tCash"></b><span>Trésorerie</span></div>
     <div class="stat"><b id="tRep"></b><span>Réputation</span></div>
@@ -309,7 +314,7 @@ const fdate=n=>dateOf(n).toLocaleDateString('fr-BE',{weekday:'short',day:'numeri
 const fshort=n=>dateOf(n).toLocaleDateString('fr-BE',{day:'numeric',month:'short'});
 const monthName=n=>dateOf(n).toLocaleDateString('fr-BE',{month:'long',year:'numeric'});
 
-let S, tab='bureau', M=null;
+let S, tab='accueil', M=null;
 const uid=()=>S.nid++;
 function log(t){S.logSeq=(S.logSeq||0)+1;S.log.unshift({d:S.day,t,q:S.logSeq});S.log=S.log.slice(0,40)}
 
@@ -494,6 +499,7 @@ function toastWarn(){log('Attention : trésorerie négative. Réduisez vos charg
 const ACT={
  endDay,
  tab:(v)=>{tab=v;render();window.scrollTo(0,0)},
+ sub:(v)=>{const [t,k]=v.split(':');sub[t]=k;render();window.scrollTo(0,0)},
  accept:(id)=>{const p=S.prospects.find(x=>x.id==id);if(!p)return;
   if(p.mis){const m=MIS[p.mi];S.prospects=S.prospects.filter(x=>x!==p);
    S.dossiers.push({id:uid(),cid:null,cname:p.name,type:'mis',lab:`${m.lab} — ${p.name}`,h:m.h,done:0,n:0,diff:m.diff,dl:S.day+30,who:null,late:false,errs:0,piece:null,fee:p.fee});
@@ -556,7 +562,7 @@ const ACT={
  validate:()=>validatePiece(),
  nextPiece:()=>openPiece(M.did),
  close:()=>closeModal(),
- reset:()=>{if(M?.confirmReset){newGame();closeModal();save();tab='bureau';render()}else{M={confirmReset:1};openReset()}}
+ reset:()=>{if(M?.confirmReset){newGame();closeModal();save();tab='accueil';render()}else{M={confirmReset:1};openReset()}}
 };
 document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const f=ACT[b.dataset.act];if(f)f(b.dataset.v)});
 document.addEventListener('change',e=>{const s=e.target.closest('select[data-assign]');if(!s)return;
@@ -754,7 +760,7 @@ function svcRow(c){
  return `<div class="btns">${ks.map(k=>c.svc[k]?`<span class="pill p-ok">${SVC[k].s} +${eur(svcFee(c,k))}</span><button data-act="stopsvc" data-v="${c.id}:${k}">Arrêter</button>`
   :`<button data-act="offer" data-v="${c.id}:${k}" ${c.offered&&c.offered[k]&&S.day-c.offered[k]<20?'disabled':''}>Proposer ${SVC[k].s.toLowerCase()} (+${eur(svcFee(c,k))} / mois)</button>`).join('')}</div>`;
 }
-function vOffs(){
+function secOffs(){
  const can=S.pal>=ANT.pal&&S.offs.length<=ANT.max;
  let h=`<div class="sec"><h3>Bureaux (${S.offs.length})</h3><div class="card">${S.offs.map((o,i)=>{const nc=S.clients.filter(c=>(c.off||0)===i).length,ns=S.staff.filter(s=>(s.off||0)===i).length;
   return `<div class="rowx"><span class="name">${esc(o.n)}</span><span class="sub">${nc} client${nc>1?'s':''} · ${ns} collaborateur${ns>1?'s':''}</span></div>`}).join('')}
@@ -762,22 +768,32 @@ function vOffs(){
  ${S.pal<ANT.pal?`<div class="sub">Disponible à partir du palier ${ANT.pal}.</div>`:S.offs.length>ANT.max?'<div class="sub">Nombre maximal d\'antennes atteint.</div>':`<div class="btns">${ANTOWNS.filter(t=>!S.offs.some(o=>o.n===t)).map(t=>`<button data-act="openoff" data-v="${t}" ${S.cash<ANT.cost||!can?'disabled':''}>Ouvrir à ${t}</button>`).join('')}</div>`}</div></div>`;
  return h;
 }
-function vEquip(){
- let h=vOffs()+`<div class="sec"><h3>Équipement</h3>${EQ.map(e=>{const l=S.eq[e.k],c=e.c[l];return `<div class="card"><div class="rowx"><span class="name">${e.n}</span><span class="pill ${l?'p-ok':'p-mut'}">Niveau ${l} / 3</span></div>
+function secEquip(){
+ return `<div class="sec"><h3>Équipement</h3>${EQ.map(e=>{const l=S.eq[e.k],c=e.c[l];return `<div class="card"><div class="rowx"><span class="name">${e.n}</span><span class="pill ${l?'p-ok':'p-mut'}">Niveau ${l} / 3</span></div>
  <div class="sub">${e.d}</div>${l<3?`<button data-act="equip" data-v="${e.k}" ${S.cash<c*1.21?'disabled':''}>Acheter le niveau ${l+1} — ${eur(c)} HTVA</button>`:''}</div>`}).join('')}</div>`;
+}
+function secSvc(){
+ let h='';
  h+=`<div class="sec"><h3>Services</h3>${Object.entries(SVC).map(([k,v])=>`<div class="card"><div class="rowx"><span class="name">${v.n}</span>${S.svc[k]?'<span class="pill p-ok">Disponible</span>':''}</div>
- <div class="sub">${k==='paie'?'Fiches de paie et déclarations sociales chaque mois':'Un dossier de conseil chaque trimestre'} · facturé ${Math.round(v.pct*100)} % des honoraires (min. ${eur(v.min)}).${S.svc[k]?' Proposez-le dans l\'onglet Clients.':''}</div>
+ <div class="sub">${k==='paie'?'Fiches de paie et déclarations sociales chaque mois':'Un dossier de conseil chaque trimestre'} · facturé ${Math.round(v.pct*100)} % des honoraires (min. ${eur(v.min)}).${S.svc[k]?' Proposez-le depuis l\'onglet Clients.':''}</div>
  ${S.svc[k]?'':`<button data-act="unlock" data-v="${k}" ${S.cash<v.unlock||S.rep<v.rep?'disabled':''}>Débloquer — ${eur(v.unlock)}${v.rep?`, réputation ${v.rep}`:''}</button>`}</div>`).join('')}</div>`;
  return h;
 }
-function vBureau(){
- const un=S.dossiers.filter(d=>d.who===null).length,late=S.dossiers.filter(d=>d.late).length,mine=S.dossiers.filter(d=>d.who==='me');
+function secPal(){
  const nx=PAL[S.pal+1];
  let h=`<div class="sec"><h3>Palier ${S.pal} / 4</h3><div class="card"><div class="rowx"><span class="name">${PAL[S.pal].n}</span><span class="sub">${maxC()} clients · ${maxS()} collaborateur${maxS()>1?'s':''}</span></div>
  ${nx?`<div class="sub">Prochain palier : <b>${nx.n}</b> — ${eur(nx.cost)}, réputation ${nx.rep} minimum. Débloque les clients ${Object.keys(CT).find(k=>CT[k].pal===S.pal+1)}.</div><button class="pri" data-act="upgrade" ${S.cash>=nx.cost&&S.rep>=nx.rep?'':'disabled'}>Passer au palier ${S.pal+1}</button>`:'<div class="sub">Palier maximal atteint.</div>'}</div></div>`;
- h+=vEquip();
+ return h;
+}
+function secTodo(){
+ const un=S.dossiers.filter(d=>d.who===null).length,late=S.dossiers.filter(d=>d.late).length,mine=S.dossiers.filter(d=>d.who==='me');
+ let h='';
  h+=`<div class="sec"><h3>À traiter</h3><div class="card"><div class="rowx"><span>Dossiers non attribués</span><b class="mono">${un}</b></div><div class="rowx"><span>Dossiers en retard</span><b class="mono ${late?'p-red':''}">${late}</b></div><div class="rowx"><span>Mes dossiers</span><b class="mono">${mine.length}</b></div>
  <button data-act="tab" data-v="dossiers">Ouvrir les dossiers</button></div></div>`;
+ return h;
+}
+function secPros(){
+ let h='';
  h+=`<div class="sec"><h3>Demandes de prospects</h3>${S.prospects.length?S.prospects.map(p=>p.mis?`<div class="card"><div class="rowx"><span class="name">${esc(MIS[p.mi].t)}</span><span class="pill p-amber">Mission</span></div>
  <div class="sub">${esc(p.name)} · ${eur(p.fee)} HTVA à la livraison · environ ${MIS[p.mi].h} h · difficulté ${'●'.repeat(MIS[p.mi].diff)}${'○'.repeat(3-MIS[p.mi].diff)} · répond avant le ${fshort(p.exp)}</div>
  <div class="btns"><button class="pri" data-act="accept" data-v="${p.id}">Accepter</button><button data-act="refuse" data-v="${p.id}">Refuser</button></div></div>`:`<div class="card"><div class="rowx"><span class="name">${esc(p.c.name)}</span><span class="pill p-mut">${p.c.forme}${p.c.off?' · '+esc(S.offs[p.c.off].n):''}</span></div>
@@ -785,7 +801,11 @@ function vBureau(){
  <div class="rowx"><span class="sub">Prix du marché ${eur(p.c.mk)}</span><span class="mono">Votre offre ${eur(p.c.fee)} HTVA / mois</span></div>
  <div class="price">${[[.9,'−10 %'],[1,'Marché'],[1.1,'+10 %'],[1.25,'+25 %']].map(([f,l])=>`<button class="${Math.abs(p.c.fee/p.c.mk-f)<.02?'sel':''}" data-act="pprice" data-v="${p.id}:${f}">${l}</button>`).join('')}</div>
  <div class="btns"><button class="pri" data-act="accept" data-v="${p.id}">Accepter</button><button data-act="refuse" data-v="${p.id}">Refuser</button></div></div>`).join(''):'<div class="empty">Aucune demande pour le moment. Une bonne réputation en attire davantage.</div>'}</div>`;
- h+=`<div class="sec"><h3>Journal</h3><div class="card log">${S.log.slice(0,12).map(l=>`<div><span class="d">${fshort(l.d)}</span>${esc(l.t)}</div>`).join('')}</div></div>`;
+ return h;
+}
+function secJournal(n){
+ let h='';
+ h+=`<div class="sec"><h3>Journal</h3><div class="card log">${S.log.slice(0,n||12).map(l=>`<div><span class="d">${fshort(l.d)}</span>${esc(l.t)}</div>`).join('')}</div></div>`;
  return h;
 }
 function monthDays(off){
@@ -813,13 +833,13 @@ function vDossiers(){
  return `<div class="sec"><h2>Dossiers (${ds.length})</h2><div class="seg"><button class="${dview==='liste'?'sel':''}" data-act="dview" data-v="liste">Liste</button><button class="${dview==='cal'?'sel':''}" data-act="dview" data-v="cal">Calendrier</button></div>
  ${dview==='cal'?vCal():`${S.dossiers.some(d=>d.who===null)&&S.staff.length?`<button class="pri" data-act="auto">Répartir automatiquement (${S.dossiers.filter(d=>d.who===null).length} libres)</button>`:''}<div class="sub">Répartissez chaque dossier. Attribuez-vous les encodages délicats pour les faire à la main.</div>${ds.length?ds.map(dossierCard).join(''):'<div class="empty">Tous les dossiers sont à jour.</div>'}`}</div>`;
 }
-function vClients(){
+function secClients(){
  return `<div class="sec"><h2>Clients (${S.clients.length} / ${maxC()})</h2>${S.clients.map(c=>{const n=S.dossiers.filter(d=>d.cid===c.id).length;
  return `<div class="card"><div class="rowx"><span class="name">${esc(c.name)}</span>${satPill(c.sat)}</div><div class="sub">${c.forme} · ${esc(c.town)}${S.offs.length>1?` · bureau : ${esc(S.offs[c.off||0].n)}`:''} · ${c.tva?'TVA trimestrielle':'non assujetti'} · client depuis le ${fshort(c.since)}</div>
  <div class="rowx"><span class="mono">${eur(c.fee)} HTVA / mois</span><span class="sub">${n} dossier${n>1?'s':''} ouvert${n>1?'s':''}</span></div>
  <div class="rowx"><span class="sub">Marché ${eur(c.mk||c.fee)} · ${c.fee>(c.mk||c.fee)*1.03?'au-dessus':c.fee<(c.mk||c.fee)*.97?'en dessous':'au prix'}</span><div class="btns"><button data-act="cprice" data-v="${c.id}:0.95">−5 %</button><button data-act="cprice" data-v="${c.id}:1.05">+5 %</button></div></div>${svcRow(c)}</div>`}).join('')||'<div class="empty">Aucun client.</div>'}</div>`;
 }
-function vEquipe(){
+function secTeam(){
  const full=S.staff.length>=maxS();
  let h=`<div class="sec"><h2>Équipe (${S.staff.length} / ${maxS()})</h2>${S.staff.map(s=>{const load=S.dossiers.filter(d=>d.who===s.id).reduce((a,d)=>a+d.h-d.done,0);const nxt=s.lvl===1?700:s.lvl===2?1800:0;
  return `<div class="card"><div class="rowx"><span class="name">${esc(s.name)}</span><span class="pill p-mut">${ROLE[s.lvl].t}</span></div>
@@ -830,7 +850,12 @@ function vEquipe(){
  ${nxt?`<div class="sub">Expérience ${Math.round(s.xp)} / ${nxt} h</div><div class="bar"><i style="width:${Math.min(100,s.xp/nxt*100)}%"></i></div>`:''}
  <div class="btns">${s.lvl<3?`<button data-act="train" data-v="${s.id}" ${S.cash<(s.lvl===1?600:1200)||(s.trd&&S.day-s.trd<20)?'disabled':''}>Former (${eur(s.lvl===1?600:1200)}, +200 h)</button>`:''}<button class="dan" data-act="fire" data-v="${s.id}">Licencier</button></div>
  ${s.trd&&S.day-s.trd<20?`<div class="sub">Prochaine formation possible le ${fshort(s.trd+20)}.</div>`:''}</div>`}).join('')||'<div class="empty">Vous travaillez seul pour l\'instant.</div>'}</div>`;
- h+=`<div class="sec"><h3>Candidats disponibles</h3><div class="sub">Nouvelle liste chaque lundi. Charges patronales d'environ 27 % en plus du brut.</div>${S.cands.map(c=>`<div class="card"><div class="rowx"><span class="name">${esc(c.name)}</span><span class="pill p-mut">Niveau ${c.lvl}</span></div>
+ return h;
+}
+function secCands(){
+ const full=S.staff.length>=maxS();
+ let h='';
+ h+=`<div class="sec"><h2>Candidats disponibles</h2><div class="sub">Nouvelle liste chaque lundi. Charges patronales d'environ 27 % en plus du brut.</div>${S.cands.map(c=>`<div class="card"><div class="rowx"><span class="name">${esc(c.name)}</span><span class="pill p-mut">Niveau ${c.lvl}</span></div>
  <div class="sub">${ROLE[c.lvl].t} · ${eur(c.sal)} brut / mois · coût total ${eur(c.sal*1.27)}</div><button class="pri" data-act="hire" data-v="${c.id}" ${full?'disabled':''}>Engager</button></div>`).join('')}
  ${full?'<div class="sub p-amber">Équipe complète pour ce palier.</div>':''}</div>`;
  return h;
@@ -858,7 +883,7 @@ function vCharts(){
  ${chart('Résultat du mois',ms.map(m=>m.net),lab,k)}
  ${chart('Nombre de clients',cl.map(m=>m.cli),cl.map(sl),v=>String(Math.round(v)))}</div>`;
 }
-function vFin(){
+function secMonth(){
  const fees=S.clients.reduce((a,c)=>a+feeOf(c),0),sal=S.staff.reduce((a,s)=>a+s.sal,0),onss=Math.round(sal*.27),loyer=PAL[S.pal].loyer+ANT.loyer*(S.offs.length-1),soft=45*(S.staff.length+1),st=150*S.pal*S.pal,net=fees+S.mMis-sal-onss-loyer-soft-st-S.me.sal;
  const row=(l,v,neg)=>`<tr><td>${l}</td><td class="n ${neg&&v?'p-red':''}">${neg&&v?'− ':''}${eur(v)}</td></tr>`;
  let h=`<div class="sec"><h2>Prévision fin de mois</h2><div class="card scroll"><table>
@@ -872,12 +897,19 @@ function vFin(){
  <tr><td>Impôt des sociétés estimé (20 % puis 25 %)</td><td class="n">${eur(isoc)}</td></tr></table></div>
  <div class="sub">À chaque fin de trimestre : impôt prélevé et déclaration TVA du bureau à remplir.</div></div>`;
  if(S.quarters.length)h+=`<div class="sec"><h3>Clôtures trimestrielles</h3><div class="card scroll"><table><tr><th>Trimestre</th><th class="n">Résultat</th><th class="n">Impôt</th></tr>${S.quarters.map(q=>`<tr><td>${q.q}</td><td class="n ${q.res<0?'p-red':''}">${eur(q.res)}</td><td class="n">${eur(q.isoc)}</td></tr>`).join('')}</table></div></div>`;
- h+=vCharts();
- h+=`<div class="sec"><h3>Historique</h3>${S.months.length?`<div class="card scroll"><table><tr><th>Mois</th><th class="n">Honoraires</th><th class="n">Charges</th><th class="n">Résultat</th></tr>${S.months.map(m=>`<tr><td style="text-transform:capitalize">${m.m}</td><td class="n">${eur(m.fees)}</td><td class="n">${eur(m.fees-m.net)}</td><td class="n ${m.net<0?'p-red':''}">${eur(m.net)}</td></tr>`).join('')}</table></div>`:'<div class="empty">Le premier mois n\'est pas encore clôturé.</div>'}</div>`;
- h+=`<div class="sec"><h3>Partie</h3><div class="card"><div class="sub">Sauvegarde automatique sur cet appareil.</div>${S.noSum?'<button data-act="sumon">Réafficher le résumé de la journée</button>':''}<button class="dan" data-act="reset">Recommencer une partie</button></div></div>`;
  return h;
 }
-function vMoi(){
+function secHist(){
+ let h='';
+ h+=`<div class="sec"><h2>Historique mensuel</h2>${S.months.length?`<div class="card scroll"><table><tr><th>Mois</th><th class="n">Honoraires</th><th class="n">Charges</th><th class="n">Résultat</th></tr>${S.months.map(m=>`<tr><td style="text-transform:capitalize">${m.m}</td><td class="n">${eur(m.fees)}</td><td class="n">${eur(m.fees-m.net)}</td><td class="n ${m.net<0?'p-red':''}">${eur(m.net)}</td></tr>`).join('')}</table></div>`:'<div class="empty">Le premier mois n\'est pas encore clôturé.</div>'}</div>`;
+ return h;
+}
+function secSettings(){
+ let h='';
+ h+=`<div class="sec"><h3>Réglages</h3><div class="card"><div class="sub">Sauvegarde automatique sur cet appareil.</div>${S.noSum?'<button data-act="sumon">Réafficher le résumé de la journée</button>':''}<button class="dan" data-act="reset">Recommencer une partie</button></div></div>`;
+ return h;
+}
+function secProfile(){
  const me=S.me,next=1500*(me.flvl+1);
  let h=`<div class="sec"><h2>Mon profil de directeur</h2><div class="card"><div class="rowx"><span>Compte personnel</span><b class="mono">${eur(me.perso)}</b></div>
  <div class="rowx"><span>Portefeuille d'actions</span><b class="mono">${eur(me.inv)}</b></div><div class="rowx"><span>Prêt au bureau (compte courant)</span><b class="mono">${eur(me.loan)}</b></div>
@@ -891,16 +923,40 @@ function vMoi(){
  <div class="sub">Un prêt vous sera remboursé ; un apport reste dans le bureau.</div></div></div>`;
  h+=`<div class="sec"><h3>Ma formation</h3><div class="card"><div class="rowx"><span>Niveau ${me.flvl} / 5</span><span class="sub">+0,5 h par jour à chaque niveau</span></div>
  ${me.flvl<5?`<button class="pri" data-act="dtrain" ${me.perso<next?'disabled':''}>Suivre le niveau ${me.flvl+1} (${eur(next)})</button>`:'<div class="sub">Formation complète.</div>'}</div></div>`;
- h+=`<div class="sec"><h3>Trophées (${S.tro.length} / ${TRO.length})</h3><div class="card">${TRO.map(([id,n,d,,r])=>`<div class="rowx"><span><b>${n}</b><br><span class="sub">${d} · prime ${eur(r)}</span></span>${S.tro.includes(id)?'<span class="pill p-ok">Obtenu</span>':'<span class="pill p-mut">À faire</span>'}</div>`).join('')}</div></div>`;
- h+=`<div class="sec"><h3>Achats personnels</h3>${ITEMS.map((it,i)=>`<div class="card"><div class="rowx"><span class="name">${it.n}</span>${me.owned.includes(i)?'<span class="pill p-ok">Acheté</span>':`<button data-act="buy" data-v="${i}" ${me.perso<it.p?'disabled':''}>${eur(it.p)}</button>`}</div></div>`).join('')}</div>`;
  return h;
 }
+function secTro(){
+ let h='';
+ h+=`<div class="sec"><h2>Trophées (${S.tro.length} / ${TRO.length})</h3><div class="card">${TRO.map(([id,n,d,,r])=>`<div class="rowx"><span><b>${n}</b><br><span class="sub">${d} · prime ${eur(r)}</span></span>${S.tro.includes(id)?'<span class="pill p-ok">Obtenu</span>':'<span class="pill p-mut">À faire</span>'}</div>`).join('')}</div></div>`;
+ return h;
+}
+function secShop(){
+ const me=S.me;let h='';
+ h+=`<div class="sec"><h2>Achats personnels</h2>${ITEMS.map((it,i)=>`<div class="card"><div class="rowx"><span class="name">${it.n}</span>${me.owned.includes(i)?'<span class="pill p-ok">Acheté</span>':`<button data-act="buy" data-v="${i}" ${me.perso<it.p?'disabled':''}>${eur(it.p)}</button>`}</div></div>`).join('')}</div>`;
+ return h;
+}
+const SUBS={clients:[['cli','Clients'],['pros','Prospects']],cabinet:[['equipe','Équipe'],['recrut','Recrutement'],['bureaux','Bureaux'],['equip','Équipement'],['svc','Services']],
+ fin:[['mois','Ce mois'],['graph','Graphiques'],['hist','Historique']],moi:[['profil','Profil'],['tro','Trophées'],['shop','Achats'],['regl','Réglages']]};
+let sub={clients:'cli',cabinet:'equipe',fin:'mois',moi:'profil'};
+function segBar(t){const cnt={pros:S.prospects.length};return `<div class="seg" role="tablist">${SUBS[t].map(([k,l])=>`<button role="tab" class="${sub[t]===k?'sel':''}" data-act="sub" data-v="${t}:${k}">${l}${cnt[k]?` (${cnt[k]})`:''}</button>`).join('')}</div>`}
+function vAccueil(){
+ const fees=S.clients.reduce((a,c)=>a+feeOf(c),0);
+ let h=`<div class="sec"><h2>${esc(PAL[S.pal].n)}</h2><div class="card"><div class="rowx"><span>Honoraires mensuels</span><b class="mono">${eur(fees)} HTVA</b></div>
+ <div class="rowx"><span>Équipe</span><b class="mono">${S.staff.length} / ${maxS()}</b></div><div class="rowx"><span>Mes heures aujourd'hui</span><b class="mono">${S.myH.toFixed(2).replace('.',',')} h</b></div></div></div>`;
+ h+=secTodo();h+=secPros();h+=secJournal(8);return h;
+}
+function vClientsTab(){return segBar('clients')+(sub.clients==='pros'?secPros():secClients())}
+function vCabinet(){const k=sub.cabinet;return segBar('cabinet')+(k==='recrut'?secCands():k==='bureaux'?secPal()+secOffs():k==='equip'?secEquip():k==='svc'?secSvc():secTeam())}
+function vFinTab(){const k=sub.fin;return segBar('fin')+(k==='graph'?vCharts():k==='hist'?secHist():secMonth())}
+function vMoiTab(){const k=sub.moi;return segBar('moi')+(k==='tro'?secTro():k==='shop'?secShop():k==='regl'?secSettings():secProfile())}
 function render(){
  checkTro();renderTop();
+ if(tab==='bureau')tab='accueil';if(tab==='equipe'){tab='cabinet'}
  const un=S.dossiers.filter(d=>d.who===null||d.late).length;
- const tabs=[['bureau','Bureau',S.prospects.length],['dossiers','Dossiers',un],['clients','Clients',0],['equipe','Équipe',0],['fin','Finances',0],['moi','Moi',0]];
+ const tabs=[['accueil','Accueil',S.prospects.length],['dossiers','Dossiers',un],['clients','Clients',0],['cabinet','Cabinet',0],['fin','Finances',0]];
  document.getElementById('nav').innerHTML=tabs.map(([k,l,b])=>`<button class="${tab===k?'on':''}" data-act="tab" data-v="${k}">${l}${b?`<span class="bdg">${b}</span>`:''}</button>`).join('');
- document.getElementById('app').innerHTML={bureau:vBureau,dossiers:vDossiers,clients:vClients,equipe:vEquipe,fin:vFin,moi:vMoi}[tab]();
+ const mb=document.getElementById('moiBtn');if(mb)mb.className='moi'+(tab==='moi'?' on':'');
+ document.getElementById('app').innerHTML={accueil:vAccueil,dossiers:vDossiers,clients:vClientsTab,cabinet:vCabinet,fin:vFinTab,moi:vMoiTab}[tab]();
 }
 if(!load()){newGame();save()}
 render();
