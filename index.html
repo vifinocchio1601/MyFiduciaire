@@ -35,6 +35,7 @@
   --accent:#4DB487; --accent-ink:#0B1410; --red:#E8695E; --amber:#E2A84B; --ok:#62C08A;
   --rule:rgba(77,180,135,.10); --shadow:none; color-scheme:dark}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{height:100%}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.4}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--accent)}
@@ -152,6 +153,38 @@ td.n,th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabula
 .grid input{font:inherit;font-family:var(--f-mono);text-align:right;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);width:100%;min-width:0}
 .grid input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 @media (prefers-reduced-motion:no-preference){.card{transition:border-color .15s}}
+/* Ordinateur : menu latéral, contenu sur plusieurs colonnes, fenêtres centrées */
+@media (min-width:960px){
+ body{padding-left:232px}
+ .top{padding-left:32px;padding-right:32px;padding-block:14px 16px}
+ .top .row1,.top .stats{max-width:1180px}
+ .stats{grid-template-columns:repeat(3,minmax(0,220px));gap:24px}
+ .top .brand{display:none}
+ .top .row1{justify-content:flex-end}
+ main{max-width:1180px;margin:0;padding-left:32px;padding-right:32px;padding-block:24px 48px;gap:22px}
+ .foot{top:0;right:auto;width:232px;border-top:0;border-right:1px solid var(--line);display:flex;flex-direction:column;padding:0;padding-bottom:env(safe-area-inset-bottom,0px)}
+ .foot::before{content:"MyFiduciaire";display:block;font-family:var(--f-display);font-weight:700;font-size:22px;color:var(--accent);padding:20px 22px 14px}
+ .nav{order:1;display:flex;flex-direction:column}
+ .nav button{text-align:left;font-size:15px;padding:12px 22px;border-top:0;border-left:3px solid transparent}
+ .nav button.on{border-left-color:var(--accent);border-top-color:transparent;background:var(--bg)}
+ .nav button:hover{color:var(--ink);background:var(--bg)}
+ .nav .bdg{position:static;margin-left:8px;vertical-align:1px}
+ .endday{order:2;margin-top:auto;flex-direction:column;align-items:stretch;padding:16px 18px 20px;border-top:1px solid var(--line);gap:8px}
+ .endday button{padding:12px}
+ .sec:has(> .card ~ .card ~ .card){display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px;align-items:start}
+ .sec:has(> .card ~ .card ~ .card) > :not(.card){grid-column:1/-1}
+ .sec > .card:has(.cal),.sec > .card:has(table){grid-column:1/-1}
+ .sec:has(> .card.chart){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+ .sec:has(> .card.chart) > :not(.card){grid-column:1/-1}
+ .seg{max-width:720px}
+ .seg button{flex:0 1 auto}
+ .modal{align-items:center;padding:24px}
+ .sheet{max-width:680px;max-height:88vh;border-radius:12px;padding:22px 26px}
+ button:hover:not(:disabled){border-color:var(--accent)}
+ .cal button{min-height:72px}
+ .kbd{display:inline-block}
+}
+.kbd{display:none;font-family:var(--f-mono);font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:0 5px;margin-left:6px}
 </style>
 </head><body>
 
@@ -165,7 +198,7 @@ td.n,th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabula
 </div>
 <main id="app"></main>
 <div class="foot">
-  <div class="endday"><div class="hrs">Mes heures aujourd'hui : <b id="myH"></b></div><button class="pri" data-act="endDay">Terminer la journée →</button></div>
+  <div class="endday"><div class="hrs">Mes heures aujourd'hui : <b id="myH"></b></div><button class="pri" data-act="endDay">Terminer la journée →<span class="kbd" style="color:inherit;border-color:currentColor">J</span></button></div>
   <nav class="nav" id="nav"></nav>
 </div>
 <div class="modal" id="modal" hidden><div class="sheet" id="sheet"></div></div>
@@ -568,6 +601,11 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(
 document.addEventListener('change',e=>{const s=e.target.closest('select[data-assign]');if(!s)return;
  const d=S.dossiers.find(x=>x.id==s.dataset.assign);if(!d)return;d.who=s.value===''?null:s.value==='me'?'me':+s.value;save();render()});
 document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal()});
+document.addEventListener('keydown',e=>{if(e.metaKey||e.ctrlKey||e.altKey||/INPUT|SELECT|TEXTAREA/.test(e.target.tagName))return;
+ if(e.key==='Escape'&&!document.getElementById('modal').hidden){closeModal();return}
+ if(!document.getElementById('modal').hidden)return;
+ const t={'1':'accueil','2':'dossiers','3':'clients','4':'cabinet','5':'fin','m':'moi'}[e.key.toLowerCase()];if(t){ACT.tab(t);return}
+ if(e.key.toLowerCase()==='j'){endDay()}});
 
 /* ---------- Encodage ---------- */
 function newPiece(d){
